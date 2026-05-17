@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>FPCA AFT Health App test</title>
+  <link rel="stylesheet" href="style.css" />
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <div class="container">
+    <h1>FPCA AFT Health App</h1>
+
+    <button id="loadButton">
+      Load Health Prediction
+    </button>
+
+    <div class="cards">
+      <div class="card">
+        <h2>Median Age at Death</h2>
+        <p id="ageAtDeath">-</p>
+      </div>
+
+      <div class="card">
+        <h2>10-Year Mortality Risk</h2>
+        <p id="mortality10yr">-</p>
+      </div>
+
+      <div class="card">
+        <h2>FPCA Score</h2>
+        <p id="fpcaScore">-</p>
+      </div>
+
+      <div class="card">
+        <h2>Weekly Steps</h2>
+        <p id="weeklySteps">-</p>
+      </div>
+    </div>
+
+    <div class="chart-card">
+      <h2>Predicted Survival Curve</h2>
+      <canvas id="survivalChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h2>Predicted Death Probability Curve</h2>
+      <canvas id="deathChart"></canvas>
+    </div>
+
+    <div class="chart-card">
+      <h2>Raw Backend JSON</h2>
+      <pre id="rawJson"></pre>
+    </div>
+  </div>
+
+  <script src="app.js?v=4"></script>
+</body>
+</html>

@@ -1,0 +1,23 @@
+{
+  "steps_entity_id": "sensor.nick_r_steps",
+  "timezone": "America/New_York",
+
+  "age": 50,
+  "bmi": 27,
+
+  "sex": "Male",
+  "race_ethnicity": "Non-Hispanic White",
+  "education": "College graduate+",
+  "marital_status": "Never married",
+  "smoking_status": "Never",
+
+  "alcohol_use": "Yes",
+
+  "hypertension": "No",
+  "diabetes": "No",
+  "heart_attack": "No",
+  "stroke": "No",
+  "cancer": "No",
+
+  "self_rated_health": "Very good"
+}
