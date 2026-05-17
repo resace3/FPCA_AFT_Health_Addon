@@ -1,6 +1,3 @@
-const loadButton = document.getElementById("loadButton")
-
-const ageAtDeath = document.getElementById("ageAtDeath")
 const mortality10yr = document.getElementById("mortality10yr")
 const fpcaScore = document.getElementById("fpcaScore")
 const weeklySteps = document.getElementById("weeklySteps")
@@ -8,6 +5,42 @@ const rawJson = document.getElementById("rawJson")
 
 let survivalChart = null
 let deathChart = null
+let fpcaChart = null
+
+function initTabs() {
+  const tabButtons = document.querySelectorAll(".tab-button")
+  const tabPanels = document.querySelectorAll(".tab-panel")
+
+  if (!tabButtons.length || !tabPanels.length) {
+    return
+  }
+
+  const setActiveTab = tabId => {
+    tabButtons.forEach(button => {
+      button.classList.toggle(
+        "active",
+        button.dataset.tab === tabId
+      )
+      button.setAttribute(
+        "aria-selected",
+        button.dataset.tab === tabId
+      )
+    })
+
+    tabPanels.forEach(panel => {
+      panel.classList.toggle(
+        "active",
+        panel.id === `tab-${tabId}`
+      )
+    })
+  }
+
+  tabButtons.forEach(button => {
+    button.addEventListener("click", () => {
+      setActiveTab(button.dataset.tab)
+    })
+  })
+}
 
 function makeSurvivalCurve(aft) {
   const lp = aft.linear_predictor_log_months
@@ -65,6 +98,8 @@ function renderCharts(curve) {
           label: "Survival Probability",
           data: curve.survival,
           borderWidth: 3,
+          borderColor: "#1d4ed8",
+          backgroundColor: "rgba(29, 78, 216, 0.15)",
           tension: 0.3
         }
       ]
@@ -99,6 +134,8 @@ function renderCharts(curve) {
           label: "Death Probability",
           data: curve.death,
           borderWidth: 3,
+          borderColor: "#ef4444",
+          backgroundColor: "rgba(239, 68, 68, 0.12)",
           tension: 0.3
         }
       ]
@@ -125,8 +162,74 @@ function renderCharts(curve) {
   })
 }
 
+function renderFpcaChart(fpca) {
+  const fpcaCtx = document.getElementById("fpcaChart")
+  if (!fpcaCtx || !fpca?.curves) {
+    return
+  }
+
+  const fitbit = fpca.curves.fitbit_week_curve || []
+  const mean = fpca.curves.nhanes_mean_curve || []
+
+  const labels = fitbit.map((_, index) => {
+    const hour = index % 24
+    if (hour !== 0) {
+      return ""
+    }
+    const day = Math.floor(index / 24) + 1
+    return `Day ${day}`
+  })
+
+  if (fpcaChart) {
+    fpcaChart.destroy()
+  }
+
+  fpcaChart = new Chart(fpcaCtx, {
+    type: "line",
+    data: {
+      labels,
+      datasets: [
+        {
+          label: "Your Hourly Steps",
+          data: fitbit,
+          borderWidth: 2,
+          borderColor: "#0f172a",
+          backgroundColor: "rgba(15, 23, 42, 0.08)",
+          tension: 0.25
+        },
+        {
+          label: "NHANES Mean Curve",
+          data: mean,
+          borderWidth: 2,
+          borderColor: "#6366f1",
+          backgroundColor: "rgba(99, 102, 241, 0.12)",
+          borderDash: [6, 6],
+          tension: 0.25
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: {
+          title: {
+            display: true,
+            text: "Hourly Steps"
+          }
+        },
+        x: {
+          ticks: {
+            autoSkip: false,
+            maxRotation: 0,
+            callback: (_, index) => labels[index]
+          }
+        }
+      }
+    }
+  })
+}
+
 async function loadBackend() {
-  ageAtDeath.textContent = "Loading..."
   mortality10yr.textContent = "Loading..."
   fpcaScore.textContent = "Loading..."
   weeklySteps.textContent = "Loading..."
@@ -155,8 +258,6 @@ async function loadBackend() {
     const aft = data.aft
     const fpca = data.fpca
 
-    ageAtDeath.textContent =
-      `${aft.predicted_median_age_at_death.toFixed(1)} years`
 
     mortality10yr.textContent =
       `${(aft.predicted_probability_of_dying_within_10_years * 100).toFixed(1)}%`
@@ -170,6 +271,7 @@ async function loadBackend() {
     const curve = makeSurvivalCurve(aft)
 
     renderCharts(curve)
+    renderFpcaChart(fpca)
 
     rawJson.textContent =
       JSON.stringify(data, null, 2)
@@ -180,4 +282,7 @@ async function loadBackend() {
   }
 }
 
-loadButton.addEventListener("click", loadBackend)
+document.addEventListener("DOMContentLoaded", () => {
+  initTabs()
+  loadBackend()
+})

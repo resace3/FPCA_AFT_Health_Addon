@@ -3,6 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <title>FPCA AFT Health App test</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    rel="stylesheet"
+  />
   <link rel="stylesheet" href="style.css" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
@@ -11,45 +17,63 @@
   <div class="container">
     <h1>FPCA AFT Health App</h1>
 
-    <button id="loadButton">
-      Load Health Prediction
-    </button>
-
-    <div class="cards">
-      <div class="card">
-        <h2>Median Age at Death</h2>
-        <p id="ageAtDeath">-</p>
+    <div class="tabs">
+      <div class="tab-buttons" role="tablist">
+        <button class="tab-button active" data-tab="aft" role="tab">
+          AFT Results
+        </button>
+        <button class="tab-button" data-tab="fpca" role="tab">
+          FPCA Score
+        </button>
+        <button class="tab-button" data-tab="raw" role="tab">
+          Raw JSON
+        </button>
       </div>
 
-      <div class="card">
-        <h2>10-Year Mortality Risk</h2>
-        <p id="mortality10yr">-</p>
+      <div class="tab-panel active" id="tab-aft" role="tabpanel">
+        <div class="cards">
+          <div class="card">
+            <h2>10-Year Mortality Risk</h2>
+            <p id="mortality10yr">-</p>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h2>Predicted Survival Curve</h2>
+          <canvas id="survivalChart"></canvas>
+        </div>
+
+        <div class="chart-card">
+          <h2>Predicted Death Probability Curve</h2>
+          <canvas id="deathChart"></canvas>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>FPCA Score</h2>
-        <p id="fpcaScore">-</p>
+      <div class="tab-panel" id="tab-fpca" role="tabpanel">
+        <div class="cards">
+          <div class="card">
+            <h2>FPCA Score</h2>
+            <p id="fpcaScore">-</p>
+          </div>
+
+          <div class="card">
+            <h2>Weekly Steps</h2>
+            <p id="weeklySteps">-</p>
+          </div>
+        </div>
+
+        <div class="chart-card">
+          <h2>Last 7 Days Steps vs NHANES Mean</h2>
+          <canvas id="fpcaChart"></canvas>
+        </div>
       </div>
 
-      <div class="card">
-        <h2>Weekly Steps</h2>
-        <p id="weeklySteps">-</p>
+      <div class="tab-panel" id="tab-raw" role="tabpanel">
+        <div class="chart-card">
+          <h2>Raw Backend JSON</h2>
+          <pre id="rawJson"></pre>
+        </div>
       </div>
-    </div>
-
-    <div class="chart-card">
-      <h2>Predicted Survival Curve</h2>
-      <canvas id="survivalChart"></canvas>
-    </div>
-
-    <div class="chart-card">
-      <h2>Predicted Death Probability Curve</h2>
-      <canvas id="deathChart"></canvas>
-    </div>
-
-    <div class="chart-card">
-      <h2>Raw Backend JSON</h2>
-      <pre id="rawJson"></pre>
     </div>
   </div>
 
