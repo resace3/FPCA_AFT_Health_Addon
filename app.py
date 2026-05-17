@@ -376,73 +376,94 @@ def health():
     })
 
 
+@app.route("/api/debug/supervisor")
+def debug_supervisor():
+    return jsonify({
+        "env": {
+            "SUPERVISOR_TOKEN": bool(os.environ.get("SUPERVISOR_TOKEN")),
+            "HASSIO_TOKEN": bool(os.environ.get("HASSIO_TOKEN"))
+        },
+        "paths": {
+            "/var/run/supervisor/token": os.path.exists("/var/run/supervisor/token"),
+            "/run/supervisor/token": os.path.exists("/run/supervisor/token"),
+            "/run/secrets/supervisor_token": os.path.exists("/run/secrets/supervisor_token")
+        }
+    })
+
+
 @app.route("/api/aft")
 def api_aft():
+    try:
+        options = load_options()
 
-    options = load_options()
+        print("\n==============================")
+        print("RUNNING REAL HOME ASSISTANT FPCA")
+        print("==============================")
+        print("Entity:", options["steps_entity_id"])
+        print("Timezone:", options["timezone"])
 
-    print("\n==============================")
-    print("RUNNING REAL HOME ASSISTANT FPCA")
-    print("==============================")
-    print("Entity:", options["steps_entity_id"])
-    print("Timezone:", options["timezone"])
+        fpca_result = get_fpca_score_from_home_assistant_steps(
+            entity_id=options["steps_entity_id"],
+            local_timezone=options["timezone"],
+            mean_curve_file=MEAN_CURVE_FILE,
+            eigenfunction_file=EIGENFUNCTION_FILE
+        )
 
-    fpca_result = get_fpca_score_from_home_assistant_steps(
-        entity_id=options["steps_entity_id"],
-        local_timezone=options["timezone"],
-        mean_curve_file=MEAN_CURVE_FILE,
-        eigenfunction_file=EIGENFUNCTION_FILE
-    )
+        aft_result = predict_weibull_aft_output(
+            FPCA_score_1=fpca_result["fpca_score_1"],
 
-    aft_result = predict_weibull_aft_output(
-        FPCA_score_1=fpca_result["fpca_score_1"],
+            age=options["age"],
+            bmi=options["bmi"],
 
-        age=options["age"],
-        bmi=options["bmi"],
+            sex=options["sex"],
 
-        sex=options["sex"],
+            race_ethnicity=
+                options["race_ethnicity"],
 
-        race_ethnicity=
-            options["race_ethnicity"],
+            education=
+                options["education"],
 
-        education=
-            options["education"],
+            marital_status=
+                options["marital_status"],
 
-        marital_status=
-            options["marital_status"],
+            smoking_status=
+                options["smoking_status"],
 
-        smoking_status=
-            options["smoking_status"],
+            alcohol_use=
+                options["alcohol_use"],
 
-        alcohol_use=
-            options["alcohol_use"],
+            hypertension=
+                options["hypertension"],
 
-        hypertension=
-            options["hypertension"],
+            diabetes=
+                options["diabetes"],
 
-        diabetes=
-            options["diabetes"],
+            heart_attack=
+                options["heart_attack"],
 
-        heart_attack=
-            options["heart_attack"],
+            stroke=
+                options["stroke"],
 
-        stroke=
-            options["stroke"],
+            cancer=
+                options["cancer"],
 
-        cancer=
-            options["cancer"],
+            self_rated_health=
+                options["self_rated_health"]
+        )
 
-        self_rated_health=
-            options["self_rated_health"]
-    )
+        payload = {
+            "options": options,
+            "fpca": fpca_result,
+            "aft": aft_result
+        }
 
-    payload = {
-        "options": options,
-        "fpca": fpca_result,
-        "aft": aft_result
-    }
-
-    return jsonify(sanitize_for_json(payload))
+        return jsonify(sanitize_for_json(payload))
+    except Exception as exc:
+        return jsonify({
+            "error": "backend_error",
+            "message": str(exc),
+            "type": exc.__class__.__name__
+        }), 500
 
 
 # =========================================================

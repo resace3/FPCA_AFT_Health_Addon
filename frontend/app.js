@@ -132,7 +132,24 @@ async function loadBackend() {
   weeklySteps.textContent = "Loading..."
 
   try {
-    const response = await fetch("api/aft")
+    const response = await fetch("./api/aft")
+    const contentType =
+      response.headers.get("content-type") || ""
+
+    if (!response.ok) {
+      const text = await response.text()
+      throw new Error(
+        `HTTP ${response.status}: ${text}`
+      )
+    }
+
+    if (!contentType.includes("application/json")) {
+      const text = await response.text()
+      throw new Error(
+        `Unexpected content-type: ${contentType} | ${text}`
+      )
+    }
+
     const data = await response.json()
 
     const aft = data.aft

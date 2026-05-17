@@ -7,12 +7,68 @@ from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 
+def _log(message):
+    print(f"[fpca] {message}", flush=True)
+
+
+def _token_summary(token):
+    if not token:
+        return "missing"
+    return f"len={len(token)}"
+
+
+def _read_token_file(path):
+    try:
+        with open(path, "r") as f:
+            token = f.read().strip()
+            if token:
+                return token
+    except Exception as exc:
+        _log(f"Failed to read token file {path}: {exc}")
+        return None
+    return None
+
+
+def get_supervisor_token():
+    _log("Resolving supervisor token...")
+    token = os.environ.get("SUPERVISOR_TOKEN")
+    if token:
+        _log(f"Using SUPERVISOR_TOKEN env var ({_token_summary(token)})")
+        return token
+    _log("SUPERVISOR_TOKEN env var not set.")
+
+    token = os.environ.get("HASSIO_TOKEN")
+    if token:
+        _log(f"Using HASSIO_TOKEN env var ({_token_summary(token)})")
+        return token
+    _log("HASSIO_TOKEN env var not set.")
+
+    for path in (
+        "/var/run/supervisor/token",
+        "/run/supervisor/token",
+        "/run/secrets/supervisor_token",
+    ):
+        if os.path.exists(path):
+            _log(f"Found token file path: {path}")
+        else:
+            _log(f"Token file not found: {path}")
+        token = _read_token_file(path)
+        if token:
+            _log(f"Using token from {path} ({_token_summary(token)})")
+            return token
+
+    _log("No supervisor token found after checking env and files.")
+    return None
+
+
 def get_fpca_score_from_home_assistant_steps(
     entity_id,
     local_timezone="America/New_York",
     mean_curve_file="nhanes_mean_curve.csv",
     eigenfunction_file="nhanes_first_eigenfunction.csv"
 ):
+    _log("Starting FPCA score fetch.")
+    _log(f"Entity: {entity_id} | Timezone: {local_timezone}")
     mean_df = pd.read_csv(mean_curve_file)
     eigen_df = pd.read_csv(eigenfunction_file)
 
@@ -25,7 +81,14 @@ def get_fpca_score_from_home_assistant_steps(
     if len(eigenfunction_1) != 168:
         raise ValueError("Eigenfunction 1 must be length 168")
 
-    token = os.environ["SUPERVISOR_TOKEN"]
+    token = get_supervisor_token()
+    if not token:
+        _log("Supervisor token missing; aborting history request.")
+        raise RuntimeError(
+            "Supervisor token not found. Ensure the add-on is running "
+            "under Home Assistant Supervisor with 'hassio_api: true'. "
+            "If running outside Supervisor, provide access another way."
+        )
 
     local_tz = ZoneInfo(local_timezone)
 
@@ -43,6 +106,8 @@ def get_fpca_score_from_home_assistant_steps(
 
     start_utc = start_local.astimezone(timezone.utc)
     end_utc = end_local.astimezone(timezone.utc)
+    _log(f"Time window local: {start_local.isoformat()} -> {end_local.isoformat()}")
+    _log(f"Time window UTC: {start_utc.isoformat()} -> {end_utc.isoformat()}")
 
     base_url = (
         f"http://supervisor/core/api/history/period/"
@@ -60,12 +125,20 @@ def get_fpca_score_from_home_assistant_steps(
         "no_attributes": "",
     }
 
+    _log(f"History URL: {base_url}")
+    _log(
+        "History params: "
+        f"filter_entity_id={entity_id}, end_time={end_utc.isoformat()}"
+    )
+
     response = requests.get(
         base_url,
         headers=headers,
         params=params,
         timeout=30
     )
+
+    _log(f"History response status={response.status_code}")
 
     if response.status_code != 200:
         raise RuntimeError(
@@ -76,6 +149,7 @@ def get_fpca_score_from_home_assistant_steps(
 
     if not data or not data[0]:
         raise RuntimeError(f"No history returned for {entity_id}")
+    _log(f"History rows returned: {len(data[0])}")
 
     df = pd.DataFrame(data[0]).copy()
 
@@ -120,6 +194,12 @@ def get_fpca_score_from_home_assistant_steps(
     ] = 0
 
     reset_rows = df[df["step_diff"] < 0].copy()
+    _log(
+        "Row summary: "
+        f"clean_rows={len(df)}, "
+        f"bad_numeric_rows={len(bad_numeric_rows)}, "
+        f"reset_rows={len(reset_rows)}"
+    )
 
     df["hour_local"] = (
         df["last_changed_local"]
