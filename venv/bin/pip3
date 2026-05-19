@@ -1,4 +1,4 @@
-#!/addons/dev/test_fpca_aft/venv/bin/python3
+#!/addons/dev/test_fpca_aft/venv/bin/python
 # -*- coding: utf-8 -*-
 import re
 import sys

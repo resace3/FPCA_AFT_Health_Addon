@@ -24,6 +24,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+      - name: Start Flask app and check health
+        run: |
+          set -euo pipefail
+          python -m flask --app app run --host 127.0.0.1 --port 5056 &
+          FLASK_PID=$!
+          for i in {1..20}; do
+            if curl -sSf http://127.0.0.1:5056/api/health > /dev/null; then
+              echo "Flask health check passed"
+              kill "$FLASK_PID"
+              wait "$FLASK_PID" || true
+              exit 0
+            fi
+            sleep 0.5
+          done
+          echo "Flask health check failed"
+          kill "$FLASK_PID" || true
+          wait "$FLASK_PID" || true
+          exit 1
+
+      - name: Install Playwright browsers
+        run: python -m playwright install --with-deps chromium
+
       - name: Run tests
         run: pytest
 
