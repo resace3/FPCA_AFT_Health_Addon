@@ -1,15 +1,12 @@
-import os
 import json
 import math
-import pandas as pd
-import numpy as np
+import os
 
+import numpy as np
+import pandas as pd
 from flask import Flask, jsonify, send_from_directory
 
-from fpca import (
-    get_fpca_score_from_home_assistant_steps
-)
-
+from fpca import get_fpca_score_from_home_assistant_steps
 
 app = Flask(__name__)
 
