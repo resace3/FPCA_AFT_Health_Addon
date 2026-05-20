@@ -3,6 +3,7 @@ name: Tests
 on:
   push:
   pull_request:
+  workflow_dispatch:
 
 jobs:
   test:
@@ -84,13 +85,21 @@ jobs:
           docker exec "$CONTAINER" bash -lc "sudo chmod a+x /usr/bin/supervisor_* /usr/bin/ha || true"
 
           docker exec "$CONTAINER" bash -lc "sudo -E bash devcontainer_bootstrap"
-          docker exec "$CONTAINER" bash -lc "sudo -E supervisor_run >/tmp/supervisor_run.log 2>&1 &"
+          # supervisor_run calls `stty sane` after Docker starts. GitHub Actions
+          # has no interactive TTY, so keep that reset best-effort for CI.
+          docker exec "$CONTAINER" bash -lc "sudo sed -i 's/stty sane/stty sane || true/' /etc/supervisor_scripts/common"
+          docker exec "$CONTAINER" bash -lc "sudo -E supervisor_run >/tmp/supervisor_run.log 2>&1 & echo \$! >/tmp/supervisor_run.pid"
 
           echo "Waiting for Supervisor..."
           for i in {1..60}; do
             if docker exec "$CONTAINER" bash -lc "ha --no-progress supervisor info" > /dev/null 2>&1; then
               echo "Supervisor is ready"
               break
+            fi
+            if ! docker exec "$CONTAINER" bash -lc "kill -0 \$(cat /tmp/supervisor_run.pid)" > /dev/null 2>&1; then
+              echo "supervisor_run exited before Supervisor became ready"
+              docker exec "$CONTAINER" bash -lc "tail -n 200 /tmp/supervisor_run.log" || true
+              exit 1
             fi
             sleep 10
           done
