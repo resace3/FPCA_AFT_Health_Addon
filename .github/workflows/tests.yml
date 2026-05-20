@@ -114,6 +114,10 @@ jobs:
           set -euo pipefail
           CONTAINER=ha-addon-dev
 
+          # The devcontainer runs Supervisor in a CI Docker-in-Docker setup,
+          # which can be marked unhealthy even after Supervisor is usable.
+          docker exec "$CONTAINER" bash -lc "ha --no-progress jobs options --ignore-conditions healthy"
+
           if docker exec "$CONTAINER" bash -lc "ha --no-progress apps install fpca_aft_addon"; then
             SLUG=fpca_aft_addon
           elif docker exec "$CONTAINER" bash -lc "ha --no-progress apps install local_fpca_aft_addon"; then
@@ -121,10 +125,6 @@ jobs:
           else
             echo "Failed to install add-on (fpca_aft_addon or local_fpca_aft_addon)"
             exit 1
-          fi
-
-          if [[ "$SLUG" == local_* ]]; then
-            docker exec "$CONTAINER" bash -lc "ha --no-progress apps rebuild $SLUG --force"
           fi
 
           docker exec "$CONTAINER" bash -lc "ha --no-progress apps start $SLUG"
