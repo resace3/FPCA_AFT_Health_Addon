@@ -77,7 +77,8 @@ jobs:
             -v "${{ github.workspace }}:/workspaces/${{ github.event.repository.name }}" \
             -v /var/lib/docker \
             -v /mnt/supervisor \
-            ghcr.io/home-assistant/devcontainer:2-addons
+            --entrypoint bash \
+            ghcr.io/home-assistant/devcontainer:2-addons -lc "sleep infinity"
           docker exec "$CONTAINER" bash -lc "bash devcontainer_bootstrap"
           docker exec -d "$CONTAINER" bash -lc "supervisor_run"
 
