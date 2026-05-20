@@ -76,7 +76,6 @@ jobs:
             -e GIT_EDITOR="code --wait" \
             -e WORKSPACE_DIRECTORY="/workspaces/${{ github.event.repository.name }}" \
             -v "${{ github.workspace }}:/workspaces/${{ github.event.repository.name }}" \
-            -v /var/run/docker.sock:/var/run/docker.sock \
             -v /var/lib/docker \
             -v /mnt/supervisor \
             --entrypoint bash \
@@ -134,6 +133,8 @@ jobs:
       - name: Dump Supervisor Logs (on failure)
         if: failure()
         run: |
+          docker ps -a || true
+          docker inspect ha-addon-dev || true
           docker logs ha-addon-dev || true
           docker exec ha-addon-dev bash -lc "tail -n 200 /tmp/supervisor_run.log" || true
           docker exec ha-addon-dev bash -lc "docker ps -a" || true
