@@ -79,11 +79,11 @@ jobs:
             -v /mnt/supervisor \
             --entrypoint bash \
             ghcr.io/home-assistant/devcontainer:2-addons -lc "sleep infinity"
-          # Make sure helper scripts are executable in the container
-          docker exec "$CONTAINER" bash -lc "chmod +x /usr/bin/supervisor_* /usr/bin/ha || true"
+          # Ensure helper scripts are executable and keep env vars during sudo
+          docker exec "$CONTAINER" bash -lc "sudo chmod a+x /usr/bin/supervisor_* /usr/bin/ha || true"
 
-          docker exec "$CONTAINER" bash -lc "bash devcontainer_bootstrap"
-          docker exec -d "$CONTAINER" bash -lc "supervisor_run"
+          docker exec "$CONTAINER" bash -lc "sudo -E bash devcontainer_bootstrap"
+          docker exec -d "$CONTAINER" bash -lc "sudo -E supervisor_run"
 
           echo "Waiting for Supervisor..."
           for i in {1..60}; do
