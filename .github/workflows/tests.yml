@@ -205,8 +205,48 @@ jobs:
             exit 1
           fi
 
-          docker exec "$CONTAINER" bash -lc "docker logs '$ADDON_CONTAINER'" | grep -q "Using recorder DB fallback at /config/home-assistant_v2.db"
-          docker exec "$CONTAINER" bash -lc "docker logs '$ADDON_CONTAINER'" | grep -q "Recorder rows returned: 168"
+          AFT_RESPONSE=""
+          for i in $(seq 1 30); do
+            if AFT_RESPONSE="$(
+              docker exec "$ADDON_CONTAINER" sh -lc '
+                if command -v curl >/dev/null 2>&1; then
+                  curl -fsS http://127.0.0.1:5056/api/aft
+                elif command -v wget >/dev/null 2>&1; then
+                  wget -qO- http://127.0.0.1:5056/api/aft
+                else
+                  exit 127
+                fi
+              '
+            )"; then
+              break
+            fi
+            sleep 5
+          done
+
+          if [ -z "$AFT_RESPONSE" ]; then
+            echo "Add-on API did not return a response"
+            docker exec "$CONTAINER" bash -lc "docker logs '$ADDON_CONTAINER'" || true
+            exit 1
+          fi
+
+          printf '%s\n' "$AFT_RESPONSE" > /tmp/addon_aft.json
+
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          data = json.loads(Path("/tmp/addon_aft.json").read_text())
+          fpca = data["fpca"]
+
+          assert data["options"]["steps_entity_id"] == "sensor.nick_r_steps"
+          assert fpca["metadata"]["raw_rows_returned"] == 168
+          assert fpca["metadata"]["hourly_rows"] == 168
+          assert len(fpca["curves"]["fitbit_week_curve"]) == 168
+          assert len(fpca["curves"]["nhanes_mean_curve"]) == 168
+          assert len(fpca["curves"]["eigenfunction_1"]) == 168
+
+          print("Verified add-on API response using the seeded recorder DB")
+          PY
 
       - name: Dump Supervisor Logs (on failure)
         if: failure()
