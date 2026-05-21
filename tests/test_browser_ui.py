@@ -82,7 +82,7 @@ def test_frontend_renders_fpca_chart():
 
                     return false
                 }""",
-                "#fpcaChart",
+                arg="#fpcaChart",
             )
 
             assert page.locator("#fpcaScore").inner_text().strip() != "-"
