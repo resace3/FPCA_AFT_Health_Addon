@@ -17,6 +17,9 @@ panel_admin: false
 homeassistant_api: true
 hassio_api: true
 
+map:
+  - config:rw
+
 arch:
   - aarch64
   - amd64

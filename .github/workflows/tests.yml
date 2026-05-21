@@ -166,8 +166,9 @@ jobs:
           set -euo pipefail
           CONTAINER=ha-addon-dev
           python recorder_db_fixture.py /tmp/home-assistant_v2.db
-          docker cp /tmp/home-assistant_v2.db "$CONTAINER":/mnt/supervisor/home-assistant_v2.db
-          docker exec "$CONTAINER" bash -lc "ls -l /mnt/supervisor/home-assistant_v2.db"
+          docker exec "$CONTAINER" bash -lc "mkdir -p /mnt/supervisor/homeassistant"
+          docker cp /tmp/home-assistant_v2.db "$CONTAINER":/mnt/supervisor/homeassistant/home-assistant_v2.db
+          docker exec "$CONTAINER" bash -lc "ls -l /mnt/supervisor/homeassistant/home-assistant_v2.db"
 
       - name: Install And Start Add-on
         run: |
@@ -211,6 +212,9 @@ jobs:
             docker exec "$CONTAINER" bash -lc "docker ps -a" || true
             exit 1
           fi
+
+          docker exec "$CONTAINER" bash -lc \
+            "docker exec '$ADDON_CONTAINER' sh -lc 'ls -l /config/home-assistant_v2.db'"
 
           AFT_RESPONSE=""
           for i in $(seq 1 30); do
