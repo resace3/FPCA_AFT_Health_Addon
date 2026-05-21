@@ -62,6 +62,53 @@ jobs:
       - name: Build Docker image
         run: docker build -f Dockerfile -t fpca-aft-addon:ci .
 
+  browser-ui:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Install Playwright
+        run: |
+          python -m pip install playwright
+          python -m playwright install --with-deps chromium
+
+      - name: Run Browser UI Check
+        env:
+          OPTIONS_FILE: ${{ github.workspace }}/options.json
+          HA_RECORDER_DB_PATH: /tmp/home-assistant_v2.db
+          RUN_BROWSER_TESTS: "1"
+          BROWSER_BASE_URL: http://127.0.0.1:5056
+        run: |
+          set -euo pipefail
+          python recorder_db_fixture.py /tmp/home-assistant_v2.db
+          python -m flask --app app run --host 127.0.0.1 --port 5056 > /tmp/flask.log 2>&1 &
+          FLASK_PID=$!
+          cleanup() {
+            kill "$FLASK_PID" || true
+            wait "$FLASK_PID" || true
+          }
+          trap cleanup EXIT
+
+          for i in {1..30}; do
+            if curl -sSf http://127.0.0.1:5056/api/health > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+
+          pytest tests/test_browser_ui.py -q
+
   addon-install:
     runs-on: ubuntu-latest
     needs: test
@@ -109,6 +156,13 @@ jobs:
             exit 1
           fi
 
+      - name: Seed Recorder DB
+        run: |
+          set -euo pipefail
+          CONTAINER=ha-addon-dev
+          docker exec "$CONTAINER" bash -lc "python3 /workspaces/${{ github.event.repository.name }}/recorder_db_fixture.py /mnt/supervisor/home-assistant_v2.db"
+          docker exec "$CONTAINER" bash -lc "ls -l /mnt/supervisor/home-assistant_v2.db"
+
       - name: Install And Start Add-on
         run: |
           set -euo pipefail
@@ -129,6 +183,24 @@ jobs:
 
           docker exec "$CONTAINER" bash -lc "ha --no-progress apps start $SLUG"
           docker exec "$CONTAINER" bash -lc "ha --no-progress apps info $SLUG" | grep -q "state: started"
+
+      - name: Verify Add-on Used Recorder DB
+        run: |
+          set -euo pipefail
+          CONTAINER=ha-addon-dev
+          ADDON_CONTAINER="$(
+            docker exec "$CONTAINER" bash -lc \
+              "docker ps --format '{{.Names}} {{.Image}}' | awk '/fpca_aft_addon|local_fpca_aft_addon/ { print \$1; exit }'"
+          )"
+
+          if [ -z "$ADDON_CONTAINER" ]; then
+            echo "Could not find started add-on container"
+            docker exec "$CONTAINER" bash -lc "docker ps -a" || true
+            exit 1
+          fi
+
+          docker exec "$CONTAINER" bash -lc "docker logs '$ADDON_CONTAINER'" | grep -q "Using recorder DB fallback at /config/home-assistant_v2.db"
+          docker exec "$CONTAINER" bash -lc "docker logs '$ADDON_CONTAINER'" | grep -q "Recorder rows returned: 168"
 
       - name: Dump Supervisor Logs (on failure)
         if: failure()

@@ -1,4 +1,5 @@
 import os
+import sqlite3
 from datetime import datetime, timedelta, timezone
 from zoneinfo import ZoneInfo
 
@@ -61,6 +62,51 @@ def get_supervisor_token():
     return None
 
 
+def _fetch_history_from_recorder_db(db_path, entity_id, start_utc, end_utc):
+    _log(f"Reading Home Assistant recorder DB: {db_path}")
+    query = """
+        SELECT s.state, s.last_changed, s.last_changed_ts, s.last_updated_ts
+        FROM states AS s
+        JOIN states_meta AS sm ON sm.metadata_id = s.metadata_id
+        WHERE sm.entity_id = ?
+          AND COALESCE(s.last_changed_ts, s.last_updated_ts) >= ?
+          AND COALESCE(s.last_changed_ts, s.last_updated_ts) <= ?
+        ORDER BY COALESCE(s.last_changed_ts, s.last_updated_ts)
+    """
+
+    rows = []
+    with sqlite3.connect(f"file:{db_path}?mode=ro", uri=True) as conn:
+        conn.row_factory = sqlite3.Row
+        for row in conn.execute(query, (entity_id, start_utc.timestamp(), end_utc.timestamp())):
+            timestamp = row["last_changed_ts"] or row["last_updated_ts"]
+            if row["last_changed"]:
+                last_changed = row["last_changed"]
+            else:
+                last_changed = datetime.fromtimestamp(timestamp, timezone.utc).isoformat()
+
+            rows.append({"state": row["state"], "last_changed": last_changed})
+
+    if not rows:
+        raise RuntimeError(f"No recorder rows returned for {entity_id}")
+
+    _log(f"Recorder rows returned: {len(rows)}")
+    return [rows]
+
+
+def _resolve_recorder_db_path():
+    recorder_db_path = os.environ.get("HA_RECORDER_DB_PATH")
+    if recorder_db_path:
+        _log(f"Using recorder DB from HA_RECORDER_DB_PATH: {recorder_db_path}")
+        return recorder_db_path
+
+    default_path = "/config/home-assistant_v2.db"
+    if os.path.exists(default_path):
+        _log(f"Using recorder DB fallback at {default_path}")
+        return default_path
+
+    return None
+
+
 def get_fpca_score_from_home_assistant_steps(
     entity_id,
     local_timezone="America/New_York",
@@ -81,15 +127,6 @@ def get_fpca_score_from_home_assistant_steps(
     if len(eigenfunction_1) != 168:
         raise ValueError("Eigenfunction 1 must be length 168")
 
-    token = get_supervisor_token()
-    if not token:
-        _log("Supervisor token missing; aborting history request.")
-        raise RuntimeError(
-            "Supervisor token not found. Ensure the add-on is running "
-            "under Home Assistant Supervisor with 'hassio_api: true'. "
-            "If running outside Supervisor, provide access another way."
-        )
-
     local_tz = ZoneInfo(local_timezone)
 
     now_utc = datetime.now(timezone.utc)
@@ -104,30 +141,43 @@ def get_fpca_score_from_home_assistant_steps(
     _log(f"Time window local: {start_local.isoformat()} -> {end_local.isoformat()}")
     _log(f"Time window UTC: {start_utc.isoformat()} -> {end_utc.isoformat()}")
 
-    base_url = f"http://supervisor/core/api/history/period/{start_utc.isoformat()}"
+    recorder_db_path = _resolve_recorder_db_path()
+    if recorder_db_path:
+        data = _fetch_history_from_recorder_db(recorder_db_path, entity_id, start_utc, end_utc)
+    else:
+        token = get_supervisor_token()
+        if not token:
+            _log("Supervisor token missing; aborting history request.")
+            raise RuntimeError(
+                "Supervisor token not found. Ensure the add-on is running "
+                "under Home Assistant Supervisor with 'hassio_api: true'. "
+                "If running outside Supervisor, provide access another way."
+            )
 
-    headers = {
-        "Authorization": f"Bearer {token}",
-        "Content-Type": "application/json",
-    }
+        base_url = f"http://supervisor/core/api/history/period/{start_utc.isoformat()}"
 
-    params = {
-        "filter_entity_id": entity_id,
-        "end_time": end_utc.isoformat(),
-        "no_attributes": "",
-    }
+        headers = {
+            "Authorization": f"Bearer {token}",
+            "Content-Type": "application/json",
+        }
 
-    _log(f"History URL: {base_url}")
-    _log(f"History params: filter_entity_id={entity_id}, end_time={end_utc.isoformat()}")
+        params = {
+            "filter_entity_id": entity_id,
+            "end_time": end_utc.isoformat(),
+            "no_attributes": "",
+        }
 
-    response = requests.get(base_url, headers=headers, params=params, timeout=30)
+        _log(f"History URL: {base_url}")
+        _log(f"History params: filter_entity_id={entity_id}, end_time={end_utc.isoformat()}")
 
-    _log(f"History response status={response.status_code}")
+        response = requests.get(base_url, headers=headers, params=params, timeout=30)
 
-    if response.status_code != 200:
-        raise RuntimeError(f"API request failed: {response.status_code} | {response.text}")
+        _log(f"History response status={response.status_code}")
 
-    data = response.json()
+        if response.status_code != 200:
+            raise RuntimeError(f"API request failed: {response.status_code} | {response.text}")
+
+        data = response.json()
 
     if not data or not data[0]:
         raise RuntimeError(f"No history returned for {entity_id}")

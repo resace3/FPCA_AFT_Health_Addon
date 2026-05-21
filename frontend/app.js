@@ -6,6 +6,8 @@ const rawJson = document.getElementById("rawJson")
 let survivalChart = null
 let deathChart = null
 let fpcaChart = null
+let latestAftData = null
+let latestFpcaData = null
 
 function initTabs() {
   const tabButtons = document.querySelectorAll(".tab-button")
@@ -33,6 +35,14 @@ function initTabs() {
         panel.id === `tab-${tabId}`
       )
     })
+
+    if (tabId === "aft" && latestAftData) {
+      renderCharts(makeSurvivalCurve(latestAftData))
+    }
+
+    if (tabId === "fpca" && latestFpcaData) {
+      renderFpcaChart(latestFpcaData)
+    }
   }
 
   tabButtons.forEach(button => {
@@ -257,6 +267,8 @@ async function loadBackend() {
 
     const aft = data.aft
     const fpca = data.fpca
+    latestAftData = aft
+    latestFpcaData = fpca
 
 
     mortality10yr.textContent =
@@ -268,10 +280,16 @@ async function loadBackend() {
     weeklySteps.textContent =
       fpca.summary.total_steps_last_7_complete_days.toLocaleString()
 
-    const curve = makeSurvivalCurve(aft)
+    const activeTab =
+      document.querySelector(".tab-button.active")?.dataset.tab || "aft"
 
-    renderCharts(curve)
-    renderFpcaChart(fpca)
+    if (activeTab === "aft") {
+      renderCharts(makeSurvivalCurve(aft))
+    }
+
+    if (activeTab === "fpca") {
+      renderFpcaChart(fpca)
+    }
 
     rawJson.textContent =
       JSON.stringify(data, null, 2)
