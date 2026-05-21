@@ -165,7 +165,8 @@ jobs:
         run: |
           set -euo pipefail
           CONTAINER=ha-addon-dev
-          docker exec "$CONTAINER" bash -lc "python /workspaces/${{ github.event.repository.name }}/recorder_db_fixture.py /mnt/supervisor/home-assistant_v2.db"
+          python recorder_db_fixture.py /tmp/home-assistant_v2.db
+          docker cp /tmp/home-assistant_v2.db "$CONTAINER":/mnt/supervisor/home-assistant_v2.db
           docker exec "$CONTAINER" bash -lc "ls -l /mnt/supervisor/home-assistant_v2.db"
 
       - name: Install And Start Add-on
