@@ -91,7 +91,7 @@ jobs:
           BROWSER_BASE_URL: http://127.0.0.1:5056
         run: |
           set -euo pipefail
-          python recorder_db_fixture.py /tmp/home-assistant_v2.db
+          python recorder_db_fixture.py /tmp/home-assistant_v2.db --timezone America/New_York
           python -m flask --app app run --host 127.0.0.1 --port 5056 > /tmp/flask.log 2>&1 &
           FLASK_PID=$!
           cleanup() {
@@ -165,7 +165,7 @@ jobs:
         run: |
           set -euo pipefail
           CONTAINER=ha-addon-dev
-          python recorder_db_fixture.py /tmp/home-assistant_v2.db
+          python recorder_db_fixture.py /tmp/home-assistant_v2.db --timezone America/New_York
           docker exec "$CONTAINER" bash -lc "mkdir -p /mnt/supervisor/homeassistant"
           docker cp /tmp/home-assistant_v2.db "$CONTAINER":/mnt/supervisor/homeassistant/home-assistant_v2.db
           docker exec "$CONTAINER" bash -lc "ls -l /mnt/supervisor/homeassistant/home-assistant_v2.db"
@@ -250,10 +250,12 @@ jobs:
 
           data = json.loads(Path("/tmp/addon_aft.json").read_text())
           fpca = data["fpca"]
+          metadata = fpca["metadata"]
+          print(json.dumps(metadata, sort_keys=True))
 
           assert data["options"]["steps_entity_id"] == "sensor.nick_r_steps"
-          assert fpca["metadata"]["raw_rows_returned"] == 168
-          assert fpca["metadata"]["hourly_rows"] == 168
+          assert metadata["raw_rows_returned"] == 168, metadata
+          assert metadata["hourly_rows"] == 168, metadata
           assert len(fpca["curves"]["fitbit_week_curve"]) == 168
           assert len(fpca["curves"]["nhanes_mean_curve"]) == 168
           assert len(fpca["curves"]["eigenfunction_1"]) == 168

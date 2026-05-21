@@ -2,6 +2,7 @@ import argparse
 import sqlite3
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 ENTITY_ID = "sensor.nick_r_steps"
 
@@ -11,13 +12,17 @@ def create_recorder_db(
     entity_id: str = ENTITY_ID,
     start_utc: datetime | None = None,
     end_utc: datetime | None = None,
+    timezone_name: str = "UTC",
 ) -> None:
     db_path = Path(db_path)
     db_path.parent.mkdir(parents=True, exist_ok=True)
 
     if end_utc is None:
         now_utc = datetime.now(timezone.utc)
-        end_utc = now_utc.replace(hour=0, minute=0, second=0, microsecond=0)
+        local_tz = ZoneInfo(timezone_name)
+        now_local = now_utc.astimezone(local_tz)
+        end_local = now_local.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_utc = end_local.astimezone(timezone.utc)
     if start_utc is None:
         start_utc = end_utc - timedelta(days=7)
 
@@ -118,9 +123,10 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("db_path")
     parser.add_argument("--entity-id", default=ENTITY_ID)
+    parser.add_argument("--timezone", default="UTC")
     args = parser.parse_args()
 
-    create_recorder_db(args.db_path, entity_id=args.entity_id)
+    create_recorder_db(args.db_path, entity_id=args.entity_id, timezone_name=args.timezone)
 
 
 if __name__ == "__main__":
