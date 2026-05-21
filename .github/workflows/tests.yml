@@ -215,15 +215,17 @@ jobs:
           AFT_RESPONSE=""
           for i in $(seq 1 30); do
             if AFT_RESPONSE="$(
-              docker exec "$ADDON_CONTAINER" sh -lc '
-                if command -v curl >/dev/null 2>&1; then
-                  curl --max-time 10 -fsS http://127.0.0.1:5056/api/aft
-                elif command -v wget >/dev/null 2>&1; then
-                  wget -T 10 -qO- http://127.0.0.1:5056/api/aft
-                else
-                  exit 127
-                fi
-              '
+              docker exec "$CONTAINER" bash -lc "
+                docker exec '$ADDON_CONTAINER' sh -lc '
+                  if command -v curl >/dev/null 2>&1; then
+                    curl --max-time 10 -fsS http://127.0.0.1:5056/api/aft
+                  elif command -v wget >/dev/null 2>&1; then
+                    wget -T 10 -qO- http://127.0.0.1:5056/api/aft
+                  else
+                    exit 127
+                  fi
+                '
+              "
             )"; then
               break
             fi
