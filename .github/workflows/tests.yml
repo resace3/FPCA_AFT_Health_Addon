@@ -194,10 +194,17 @@ jobs:
         run: |
           set -euo pipefail
           CONTAINER=ha-addon-dev
-          ADDON_CONTAINER="$(
-            docker exec "$CONTAINER" bash -lc \
-              "docker ps --format '{{.Names}} {{.Image}}' | awk '/fpca_aft_addon|local_fpca_aft_addon/ { print \$1; exit }'"
-          )"
+          ADDON_CONTAINER=""
+          for i in $(seq 1 60); do
+            ADDON_CONTAINER="$(
+              docker exec "$CONTAINER" bash -lc \
+                "docker ps --format '{{.Names}} {{.Image}}' | awk '/fpca_aft_addon|local_fpca_aft_addon/ { print \$1; exit }'"
+            )"
+            if [ -n "$ADDON_CONTAINER" ]; then
+              break
+            fi
+            sleep 5
+          done
 
           if [ -z "$ADDON_CONTAINER" ]; then
             echo "Could not find started add-on container"
@@ -210,9 +217,9 @@ jobs:
             if AFT_RESPONSE="$(
               docker exec "$ADDON_CONTAINER" sh -lc '
                 if command -v curl >/dev/null 2>&1; then
-                  curl -fsS http://127.0.0.1:5056/api/aft
+                  curl --max-time 10 -fsS http://127.0.0.1:5056/api/aft
                 elif command -v wget >/dev/null 2>&1; then
-                  wget -qO- http://127.0.0.1:5056/api/aft
+                  wget -T 10 -qO- http://127.0.0.1:5056/api/aft
                 else
                   exit 127
                 fi
