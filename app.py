@@ -4,7 +4,7 @@ import os
 
 import numpy as np
 import pandas as pd
-from flask import Flask, jsonify, send_from_directory
+from flask import Flask, abort, jsonify, send_from_directory
 
 from fpca import get_fpca_score_from_home_assistant_steps
 
@@ -52,6 +52,10 @@ EIGENFUNCTION_FILE = "nhanes_first_eigenfunction.csv"
 FPCA_SPLINE_LOOKUP_FILE = "fpca_spline_lookup.csv"
 
 OPTIONS_FILE = os.environ.get("OPTIONS_FILE", "/data/options.json")
+
+
+def _debug_enabled():
+    return os.environ.get("FLASK_DEBUG", "").lower() in {"1", "true", "yes"}
 
 
 # =========================================================
@@ -249,6 +253,9 @@ def health():
 
 @app.route("/api/debug/supervisor")
 def debug_supervisor():
+    if not _debug_enabled():
+        abort(404)
+
     return jsonify(
         {
             "env": {
@@ -314,4 +321,11 @@ def api_aft():
 # =========================================================
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5056, debug=True, threaded=True, use_reloader=True)
+    # Home Assistant ingress reaches the add-on through the container network.
+    app.run(
+        host="0.0.0.0",  # nosec B104
+        port=5056,
+        debug=_debug_enabled(),
+        threaded=True,
+        use_reloader=False,
+    )
