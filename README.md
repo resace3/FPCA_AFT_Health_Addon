@@ -1,17 +1,21 @@
-# FPCA AFT Health Add-on
+# Activity Health Insights Add-on
 
-Activity-based survival modeling for Home Assistant.
+Step-pattern health estimates for Home Assistant.
 
 ![release](https://img.shields.io/badge/release-v0.1.0-blue.svg)
 ![license](https://img.shields.io/badge/license-MIT-green.svg)
 ![python](https://img.shields.io/badge/python-3.11-yellow.svg)
 ![Home Assistant](https://img.shields.io/badge/Home%20Assistant-Add--on-orange.svg)
 
+[![Open your Home Assistant instance and show the add add-on repository dialog with this repository pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fresace3%2FFPCA_AFT_Health_Addon)
+
+![Activity Health Insights dashboard](docs/screenshot.png)
+
 ---
 
 ## Overview
 
-FPCA AFT Health Add-on is an experimental Home Assistant add-on for:
+Activity Health Insights is an experimental Home Assistant add-on for:
 
 - Functional data analysis
 - Weekly activity modeling
@@ -25,7 +29,7 @@ The platform integrates Home Assistant sensor data with statistical modeling wor
 ## Features
 
 - FPCA weekly activity scoring
-- Weibull AFT modeling
+- Long-term health estimate modeling
 - Flask backend API
 - Interactive frontend dashboard
 - Home Assistant entity integration
@@ -51,6 +55,10 @@ Health Insights
 
 ## Installation
 
+Click the button above to open Home Assistant and add this add-on repository.
+
+If the button does not open the repository dialog, add it manually:
+
 In Home Assistant:
 
 ```text
@@ -65,6 +73,6 @@ https://github.com/resace3/FPCA_AFT_Health_Addon
 
 Then:
 - Refresh the Add-on Store
-- Install `FPCA AFT Health Add-on`
+- Install `Activity Health Insights`
 - Start the add-on
 - Open Web UI

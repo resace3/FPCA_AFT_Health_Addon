@@ -1,13 +1,32 @@
-const mortality10yr = document.getElementById("mortality10yr")
-const fpcaScore = document.getElementById("fpcaScore")
-const weeklySteps = document.getElementById("weeklySteps")
-const rawJson = document.getElementById("rawJson")
+const metricElements = {
+  mortality10yr: document.querySelectorAll('[data-metric-value="mortality10yr"]'),
+  fpcaScore: document.querySelectorAll('[data-metric-value="fpcaScore"]'),
+  weeklySteps: document.querySelectorAll('[data-metric-value="weeklySteps"]')
+}
 
 let survivalChart = null
 let deathChart = null
 let fpcaChart = null
 let latestAftData = null
 let latestFpcaData = null
+
+function setMetricValue(name, value) {
+  metricElements[name]?.forEach(element => {
+    element.textContent = value
+  })
+}
+
+function setLoadingState() {
+  setMetricValue("mortality10yr", "Loading...")
+  setMetricValue("fpcaScore", "Loading...")
+  setMetricValue("weeklySteps", "Loading...")
+}
+
+function setUnavailableState() {
+  setMetricValue("mortality10yr", "Unavailable")
+  setMetricValue("fpcaScore", "Unavailable")
+  setMetricValue("weeklySteps", "Unavailable")
+}
 
 function initTabs() {
   const tabButtons = document.querySelectorAll(".tab-button")
@@ -19,25 +38,17 @@ function initTabs() {
 
   const setActiveTab = tabId => {
     tabButtons.forEach(button => {
-      button.classList.toggle(
-        "active",
-        button.dataset.tab === tabId
-      )
-      button.setAttribute(
-        "aria-selected",
-        button.dataset.tab === tabId
-      )
+      const isActive = button.dataset.tab === tabId
+      button.classList.toggle("active", isActive)
+      button.setAttribute("aria-selected", String(isActive))
     })
 
     tabPanels.forEach(panel => {
-      panel.classList.toggle(
-        "active",
-        panel.id === `tab-${tabId}`
-      )
+      panel.classList.toggle("active", panel.id === `tab-${tabId}`)
     })
 
     if (tabId === "aft" && latestAftData) {
-      renderCharts(makeSurvivalCurve(latestAftData))
+      renderAftCharts(makeSurvivalCurve(latestAftData))
     }
 
     if (tabId === "fpca" && latestFpcaData) {
@@ -52,44 +63,106 @@ function initTabs() {
   })
 }
 
-function makeSurvivalCurve(aft) {
-  const lp = aft.linear_predictor_log_months
-  const shape = aft.weibull_shape
-  const scaleParam = Math.exp(lp)
+function isFiniteNumber(value) {
+  return typeof value === "number" && Number.isFinite(value)
+}
 
+function formatPercent(value) {
+  if (!isFiniteNumber(value)) {
+    return "Unavailable"
+  }
+  return `${(value * 100).toFixed(1)}%`
+}
+
+function formatRounded(value) {
+  if (!isFiniteNumber(value)) {
+    return "Unavailable"
+  }
+  return Math.round(value).toLocaleString()
+}
+
+function formatSteps(value) {
+  if (!isFiniteNumber(value)) {
+    return "Unavailable"
+  }
+  return Math.round(value).toLocaleString()
+}
+
+function makeSurvivalCurve(aft) {
+  const lp = aft?.linear_predictor_log_months
+  const shape = aft?.weibull_shape
+
+  if (!isFiniteNumber(lp) || !isFiniteNumber(shape)) {
+    return null
+  }
+
+  const scaleParam = Math.exp(lp)
   const years = []
   const survival = []
   const death = []
 
   for (let month = 0; month <= 240; month += 6) {
     const year = month / 12
-
-    let s = 1.0
-
-    if (month > 0) {
-      s = Math.exp(
-        -Math.pow(month / scaleParam, shape)
-      )
-    }
+    const s = month === 0 ? 1 : Math.exp(-Math.pow(month / scaleParam, shape))
 
     years.push(year)
     survival.push(s)
     death.push(1 - s)
   }
 
+  return { years, survival, death }
+}
+
+function makeSharedChartOptions(extraScales = {}) {
   return {
-    years,
-    survival,
-    death
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: {
+      mode: "index",
+      intersect: false
+    },
+    plugins: {
+      legend: {
+        display: false
+      }
+    },
+    scales: extraScales
   }
 }
 
-function renderCharts(curve) {
-  const survivalCtx =
-    document.getElementById("survivalChart")
+function makeAxisOptions(overrides = {}) {
+  const { ticks = {}, title = {}, ...axisOverrides } = overrides
 
-  const deathCtx =
-    document.getElementById("deathChart")
+  return {
+    grid: {
+      color: "rgba(148, 163, 184, 0.22)"
+    },
+    ticks: {
+      color: "#64748b",
+      font: {
+        size: 12
+      },
+      ...ticks
+    },
+    title: {
+      color: "#475569",
+      font: {
+        size: 12,
+        weight: 600
+      },
+      ...title
+    },
+    ...axisOverrides
+  }
+}
+
+function renderAftCharts(curve) {
+  const survivalCtx = document.getElementById("survivalChart")
+  const deathCtx = document.getElementById("deathChart")
+
+  if (!curve || !window.Chart || !survivalCtx || !deathCtx) {
+    return
+  }
 
   if (survivalChart) {
     survivalChart.destroy()
@@ -99,6 +172,21 @@ function renderCharts(curve) {
     deathChart.destroy()
   }
 
+  const probabilityAxis = makeAxisOptions({
+    min: 0,
+    max: 1,
+    ticks: {
+      callback: value => `${Math.round(value * 100)}%`
+    }
+  })
+
+  const yearAxis = makeAxisOptions({
+    title: {
+      display: true,
+      text: "Years"
+    }
+  })
+
   survivalChart = new Chart(survivalCtx, {
     type: "line",
     data: {
@@ -107,32 +195,20 @@ function renderCharts(curve) {
         {
           label: "Survival Probability",
           data: curve.survival,
+          borderColor: "#2563eb",
+          backgroundColor: "rgba(37, 99, 235, 0.12)",
           borderWidth: 3,
-          borderColor: "#1d4ed8",
-          backgroundColor: "rgba(29, 78, 216, 0.15)",
-          tension: 0.3
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.32,
+          fill: true
         }
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          min: 0,
-          max: 1,
-          ticks: {
-            callback: value =>
-              `${Math.round(value * 100)}%`
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: "Years"
-          }
-        }
-      }
-    }
+    options: makeSharedChartOptions({
+      x: yearAxis,
+      y: probabilityAxis
+    })
   })
 
   deathChart = new Chart(deathCtx, {
@@ -143,45 +219,49 @@ function renderCharts(curve) {
         {
           label: "Death Probability",
           data: curve.death,
-          borderWidth: 3,
           borderColor: "#ef4444",
           backgroundColor: "rgba(239, 68, 68, 0.12)",
-          tension: 0.3
+          borderWidth: 3,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.32,
+          fill: true
         }
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          min: 0,
-          max: 1,
-          ticks: {
-            callback: value =>
-              `${Math.round(value * 100)}%`
-          }
-        },
-        x: {
-          title: {
-            display: true,
-            text: "Years"
-          }
-        }
-      }
-    }
+    options: makeSharedChartOptions({
+      x: yearAxis,
+      y: probabilityAxis
+    })
   })
 }
 
 function renderFpcaChart(fpca) {
   const fpcaCtx = document.getElementById("fpcaChart")
-  if (!fpcaCtx || !fpca?.curves) {
+  const mean = Array.isArray(fpca?.curves?.nhanes_mean_curve)
+    ? fpca.curves.nhanes_mean_curve
+    : []
+  const shapeFunction = Array.isArray(fpca?.curves?.eigenfunction_1)
+    ? fpca.curves.eigenfunction_1
+    : []
+  const multiplier = latestAftData?.input_FPCA_score_1
+
+  if (
+    !window.Chart
+    || !fpcaCtx
+    || !mean.length
+    || !shapeFunction.length
+    || !isFiniteNumber(multiplier)
+  ) {
     return
   }
 
-  const fitbit = fpca.curves.fitbit_week_curve || []
-  const mean = fpca.curves.nhanes_mean_curve || []
+  const patternCurve = mean.map((meanValue, index) => {
+    const shapeValue = shapeFunction[index] || 0
+    return meanValue + multiplier * shapeValue
+  })
 
-  const labels = fitbit.map((_, index) => {
+  const labels = mean.map((_, index) => {
     const hour = index % 24
     if (hour !== 0) {
       return ""
@@ -200,103 +280,94 @@ function renderFpcaChart(fpca) {
       labels,
       datasets: [
         {
-          label: "Your Hourly Steps",
-          data: fitbit,
-          borderWidth: 2,
+          label: "Your Pattern Curve",
+          data: patternCurve,
           borderColor: "#0f172a",
           backgroundColor: "rgba(15, 23, 42, 0.08)",
-          tension: 0.25
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          tension: 0.25,
+          fill: false
         },
         {
           label: "NHANES Mean Curve",
           data: mean,
-          borderWidth: 2,
-          borderColor: "#6366f1",
-          backgroundColor: "rgba(99, 102, 241, 0.12)",
-          borderDash: [6, 6],
-          tension: 0.25
+          borderColor: "#7c3aed",
+          backgroundColor: "rgba(124, 58, 237, 0.10)",
+          borderWidth: 2.5,
+          borderDash: [7, 7],
+          pointRadius: 0,
+          pointHoverRadius: 3,
+          tension: 0.25,
+          fill: false
         }
       ]
     },
-    options: {
-      responsive: true,
-      scales: {
-        y: {
-          title: {
-            display: true,
-            text: "Hourly Steps"
-          }
-        },
-        x: {
-          ticks: {
-            autoSkip: false,
-            maxRotation: 0,
-            callback: (_, index) => labels[index]
-          }
+    options: makeSharedChartOptions({
+      y: makeAxisOptions({
+        title: {
+          display: true,
+          text: "Hourly Steps"
         }
-      }
-    }
+      }),
+      x: makeAxisOptions({
+        ticks: {
+          autoSkip: false,
+          maxRotation: 0,
+          callback: (_, index) => labels[index]
+        }
+      })
+    })
   })
 }
 
 async function loadBackend() {
-  mortality10yr.textContent = "Loading..."
-  fpcaScore.textContent = "Loading..."
-  weeklySteps.textContent = "Loading..."
+  setLoadingState()
 
   try {
     const response = await fetch("./api/aft")
-    const contentType =
-      response.headers.get("content-type") || ""
+    const contentType = response.headers.get("content-type") || ""
 
     if (!response.ok) {
       const text = await response.text()
-      throw new Error(
-        `HTTP ${response.status}: ${text}`
-      )
+      throw new Error(`HTTP ${response.status}: ${text}`)
     }
 
     if (!contentType.includes("application/json")) {
       const text = await response.text()
-      throw new Error(
-        `Unexpected content-type: ${contentType} | ${text}`
-      )
+      throw new Error(`Unexpected content-type: ${contentType} | ${text}`)
     }
 
     const data = await response.json()
+    const aft = data?.aft
+    const fpca = data?.fpca
 
-    const aft = data.aft
-    const fpca = data.fpca
     latestAftData = aft
     latestFpcaData = fpca
 
+    setMetricValue(
+      "mortality10yr",
+      formatPercent(aft?.predicted_probability_of_dying_within_10_years)
+    )
+    setMetricValue("fpcaScore", formatRounded(aft?.input_FPCA_score_1))
+    setMetricValue(
+      "weeklySteps",
+      formatSteps(fpca?.summary?.total_steps_last_7_complete_days)
+    )
 
-    mortality10yr.textContent =
-      `${(aft.predicted_probability_of_dying_within_10_years * 100).toFixed(1)}%`
-
-    fpcaScore.textContent =
-      aft.input_FPCA_score_1.toFixed(0)
-
-    weeklySteps.textContent =
-      fpca.summary.total_steps_last_7_complete_days.toLocaleString()
-
-    const activeTab =
-      document.querySelector(".tab-button.active")?.dataset.tab || "aft"
+    const activeTab = document.querySelector(".tab-button.active")?.dataset.tab || "aft"
 
     if (activeTab === "aft") {
-      renderCharts(makeSurvivalCurve(aft))
+      renderAftCharts(makeSurvivalCurve(aft))
     }
 
     if (activeTab === "fpca") {
       renderFpcaChart(fpca)
     }
-
-    rawJson.textContent =
-      JSON.stringify(data, null, 2)
-
   } catch (error) {
-    rawJson.textContent =
-      `Error loading backend: ${error}`
+    console.error("Error loading Activity Health Insights backend", error)
+    setUnavailableState()
   }
 }
 

@@ -1,7 +1,7 @@
-name: FPCA AFT Health App
+name: Activity Health Insights
 version: "0.1.0"
 slug: fpca_aft_addon
-description: FPCA and Weibull AFT survival model proof-of-concept app
+description: Step-pattern health estimates from Home Assistant activity data
 
 startup: application
 boot: auto
@@ -11,7 +11,7 @@ ingress: true
 ingress_port: 5056
 
 panel_icon: mdi:heart-pulse
-panel_title: FPCA AFT Health
+panel_title: Activity Health
 panel_admin: false
 
 homeassistant_api: true

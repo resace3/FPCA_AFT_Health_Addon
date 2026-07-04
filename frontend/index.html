@@ -1,12 +1,13 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>FPCA AFT Health App test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Activity Health Insights</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link
-    href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Space+Grotesk:wght@400;500;600;700&display=swap"
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
     rel="stylesheet"
   />
   <link rel="stylesheet" href="style.css" />
@@ -14,69 +15,217 @@
 </head>
 
 <body>
-  <div class="container">
-    <h1>FPCA AFT Health App</h1>
-
-    <div class="tabs">
-      <div class="tab-buttons" role="tablist">
-        <button class="tab-button active" data-tab="aft" role="tab">
-          AFT Results
-        </button>
-        <button class="tab-button" data-tab="fpca" role="tab">
-          FPCA Score
-        </button>
-        <button class="tab-button" data-tab="raw" role="tab">
-          Raw JSON
-        </button>
-      </div>
-
-      <div class="tab-panel active" id="tab-aft" role="tabpanel">
-        <div class="cards">
-          <div class="card">
-            <h2>10-Year Mortality Risk</h2>
-            <p id="mortality10yr">-</p>
-          </div>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
+            <path d="M5 19V9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M12 19V5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M19 19v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+            <path d="M4 19h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          </svg>
         </div>
-
-        <div class="chart-card">
-          <h2>Predicted Survival Curve</h2>
-          <canvas id="survivalChart"></canvas>
-        </div>
-
-        <div class="chart-card">
-          <h2>Predicted Death Probability Curve</h2>
-          <canvas id="deathChart"></canvas>
+        <div>
+          <h1 class="brand-title">Activity Health Insights</h1>
+          <p class="brand-subtitle">Step patterns and long-term health estimates for Home Assistant</p>
         </div>
       </div>
 
-      <div class="tab-panel" id="tab-fpca" role="tabpanel">
-        <div class="cards">
-          <div class="card">
-            <h2>FPCA Score</h2>
-            <p id="fpcaScore">-</p>
-          </div>
+      <div class="status-pill">
+        <span class="status-dot" aria-hidden="true"></span>
+        Connected to Home Assistant
+      </div>
+    </header>
 
-          <div class="card">
-            <h2>Weekly Steps</h2>
-            <p id="weeklySteps">-</p>
+    <section class="tabs" role="tablist" aria-label="Health dashboard views">
+      <button
+        class="tab-button active"
+        id="tab-button-aft"
+        type="button"
+        data-tab="aft"
+        role="tab"
+        aria-selected="true"
+        aria-controls="tab-aft"
+      >
+        Health Estimate
+      </button>
+      <button
+        class="tab-button"
+        id="tab-button-fpca"
+        type="button"
+        data-tab="fpca"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tab-fpca"
+      >
+        Activity Pattern
+      </button>
+    </section>
+
+    <section
+      class="tab-panel active"
+      id="tab-aft"
+      role="tabpanel"
+      aria-labelledby="tab-button-aft"
+    >
+      <div class="metric-grid">
+        <article class="metric-card">
+          <div class="metric-icon violet" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+              <path d="M12 21s7-4.6 7-11.2A4.8 4.8 0 0 0 14.2 5 4.7 4.7 0 0 0 12 5.6 4.7 4.7 0 0 0 9.8 5 4.8 4.8 0 0 0 5 9.8C5 16.4 12 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
+              <path d="M8 12h2l1.2-2.6 2.1 5.2L15 12h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+            </svg>
+          </div>
+          <div>
+            <p class="metric-label">10-Year Risk Estimate</p>
+            <p class="metric-value" id="mortality10yr" data-metric-value="mortality10yr">Loading...</p>
+            <p class="metric-subtext">Long-term model estimate</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon indigo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+              <path d="M4 18c2.8 0 2.8-12 5.6-12S12.4 18 15.2 18 18 6 20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55" />
+            </svg>
+          </div>
+          <div>
+            <p class="metric-label">Activity Pattern Multiplier</p>
+            <p class="metric-value" id="fpcaScore" data-metric-value="fpcaScore">Loading...</p>
+            <p class="metric-subtext">How your pattern shifts from the reference curve</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon sky" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+              <path d="M7.5 18.5c1.5.7 3.2.9 4.7.2 2-.9 2.7-2.8 4.4-3.5 1.3-.5 2.4-.1 3.4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M5 14.5c1.7.5 3.3.4 4.8-.4 1.8-1 2.2-2.7 3.8-3.4 1.3-.6 2.7-.2 4 .7" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72" />
+              <path d="M3.5 10.3c1.5.3 2.8.2 4-.5 1.6-.9 2.1-2.4 3.7-3 1.2-.4 2.6 0 3.8.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".48" />
+            </svg>
+          </div>
+          <div>
+            <p class="metric-label">Weekly Steps</p>
+            <p class="metric-value" id="weeklySteps" data-metric-value="weeklySteps">Loading...</p>
+            <p class="metric-subtext">Last 7 complete days</p>
+          </div>
+        </article>
+      </div>
+
+      <div class="chart-grid">
+        <article class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Estimated Survival Over Time</h2>
+            <span class="legend-badge">
+              <span class="legend-dot"></span>
+              Survival Probability
+            </span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="survivalChart"></canvas>
+          </div>
+        </article>
+
+        <article class="chart-card">
+          <div class="chart-header">
+            <h2 class="chart-title">Estimated Risk Over Time</h2>
+            <span class="legend-badge">
+              <span class="legend-dot red"></span>
+              Death Probability
+            </span>
+          </div>
+          <div class="chart-wrap">
+            <canvas id="deathChart"></canvas>
+          </div>
+        </article>
+      </div>
+
+      <article class="insights-card">
+        <h2 class="insights-title">What This Means</h2>
+        <p class="insights-body">These estimates combine recent activity patterns with a long-term health model.</p>
+        <ul class="insight-list">
+          <li>
+            <span class="check-icon" aria-hidden="true">&check;</span>
+            Higher activity is generally associated with a lower predicted mortality risk.
+          </li>
+          <li>
+            <span class="check-icon" aria-hidden="true">&check;</span>
+            The activity multiplier rebuilds your weekly pattern from the NHANES reference curve.
+          </li>
+          <li>
+            <span class="check-icon" aria-hidden="true">&check;</span>
+            Use this add-on for informational analysis only, not medical diagnosis.
+          </li>
+        </ul>
+      </article>
+    </section>
+
+    <section
+      class="tab-panel"
+      id="tab-fpca"
+      role="tabpanel"
+      aria-labelledby="tab-button-fpca"
+    >
+      <div class="metric-grid two">
+        <article class="metric-card">
+          <div class="metric-icon indigo" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+              <path d="M4 18c2.8 0 2.8-12 5.6-12S12.4 18 15.2 18 18 6 20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55" />
+            </svg>
+          </div>
+          <div>
+            <p class="metric-label">Activity Pattern Multiplier</p>
+            <p class="metric-value" data-metric-value="fpcaScore">Loading...</p>
+            <p class="metric-subtext">Amount applied to the NHANES activity-shape function</p>
+          </div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-icon sky" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
+              <path d="M7.5 18.5c1.5.7 3.2.9 4.7.2 2-.9 2.7-2.8 4.4-3.5 1.3-.5 2.4-.1 3.4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+              <path d="M5 14.5c1.7.5 3.3.4 4.8-.4 1.8-1 2.2-2.7 3.8-3.4 1.3-.6 2.7-.2 4 .7" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72" />
+              <path d="M3.5 10.3c1.5.3 2.8.2 4-.5 1.6-.9 2.1-2.4 3.7-3 1.2-.4 2.6 0 3.8.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".48" />
+            </svg>
+          </div>
+          <div>
+            <p class="metric-label">Weekly Steps</p>
+            <p class="metric-value" data-metric-value="weeklySteps">Loading...</p>
+            <p class="metric-subtext">Last 7 complete days</p>
+          </div>
+        </article>
+      </div>
+
+      <article class="chart-card large">
+        <div class="chart-header">
+          <h2 class="chart-title">Your Activity Pattern vs NHANES Mean</h2>
+          <div class="legend-group">
+            <span class="legend-badge">
+              <span class="legend-dot dark"></span>
+              Your Pattern Curve
+            </span>
+            <span class="legend-badge">
+              <span class="legend-dot violet"></span>
+              NHANES Mean Curve
+            </span>
           </div>
         </div>
-
-        <div class="chart-card">
-          <h2>Last 7 Days Steps vs NHANES Mean</h2>
+        <div class="chart-wrap fpca">
           <canvas id="fpcaChart"></canvas>
         </div>
-      </div>
+        <p class="reference-note">Your pattern curve is reconstructed as: NHANES mean curve + activity multiplier × NHANES activity-shape function. Raw Fitbit hourly data is not plotted.</p>
+      </article>
+    </section>
 
-      <div class="tab-panel" id="tab-raw" role="tabpanel">
-        <div class="chart-card">
-          <h2>Raw Backend JSON</h2>
-          <pre id="rawJson"></pre>
-        </div>
-      </div>
-    </div>
-  </div>
+    <footer class="footer">
+      <span>Activity Health Insights</span>
+      <span>Informational only. Not intended for medical diagnosis.</span>
+    </footer>
+  </main>
 
-  <script src="app.js?v=4"></script>
+  <script src="app.js?v=5"></script>
 </body>
 </html>

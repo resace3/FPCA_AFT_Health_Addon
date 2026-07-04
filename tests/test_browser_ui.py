@@ -44,12 +44,14 @@ def test_frontend_renders_fpca_chart():
 
             page.wait_for_function(
                 """() => {
-                    const rawJson = document.querySelector('#rawJson')
-                    return rawJson && rawJson.textContent.includes('fitbit_week_curve')
+                    const weeklySteps = document.querySelector('#weeklySteps')
+                    return weeklySteps
+                      && weeklySteps.textContent.trim() !== 'Loading...'
+                      && weeklySteps.textContent.trim() !== 'Unavailable'
                 }"""
             )
 
-            page.get_by_role("tab", name="FPCA Score").click()
+            page.get_by_role("tab", name="Activity Pattern").click()
 
             page.wait_for_function(
                 """() => {
@@ -87,6 +89,8 @@ def test_frontend_renders_fpca_chart():
 
             assert page.locator("#fpcaScore").inner_text().strip() != "-"
             assert page.locator("#weeklySteps").inner_text().strip() != "-"
+            assert page.locator("#rawJson").count() == 0
+            assert page.get_by_role("tab", name="Raw JSON").count() == 0
             assert _canvas_has_pixels(page, "#fpcaChart")
         finally:
             browser.close()
