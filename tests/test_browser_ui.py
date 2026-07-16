@@ -13,89 +13,92 @@ def _canvas_has_pixels(page, selector):
         """
         selector => {
           const canvas = document.querySelector(selector)
-          if (!canvas || canvas.width === 0 || canvas.height === 0) {
-            return false
-          }
-
-          const context = canvas.getContext("2d")
-          const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
-          for (let index = 0; index < data.length; index += 1) {
-            if (data[index] !== 0) {
-              return true
-            }
-          }
-
-          return false
+          if (!canvas || canvas.width === 0 || canvas.height === 0) return false
+          const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height)
+          return data.some(channel => channel !== 0)
         }
         """,
         selector,
     )
 
 
-def test_frontend_renders_fpca_chart():
+def test_three_tab_dashboard_is_functional_and_responsive():
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as playwright:
         browser = playwright.chromium.launch(headless=True)
         page = browser.new_page(viewport={"width": 1440, "height": 1080})
+        console_errors = []
+        page.on(
+            "console",
+            lambda message: (
+                console_errors.append(message.text) if message.type == "error" else None
+            ),
+        )
 
         try:
-            page.goto(BASE_URL, wait_until="domcontentloaded")
-
+            page.goto(BASE_URL, wait_until="networkidle")
             page.wait_for_function(
                 """() => {
-                    const weeklySteps = document.querySelector('#weeklySteps')
-                    return weeklySteps
-                      && weeklySteps.textContent.trim() !== 'Loading...'
-                      && weeklySteps.textContent.trim() !== 'Unavailable'
+                  const value = document.querySelector('#weekly-steps')?.textContent.trim()
+                  return value && value !== 'Loading...' && value !== 'Unavailable'
                 }"""
             )
 
-            page.get_by_role("tab", name="Activity Pattern").click()
+            tabs = page.get_by_role("tab").all()
+            assert [tab.inner_text().strip() for tab in tabs] == [
+                "Overview",
+                "Activity Rhythm",
+                "Configuration",
+            ]
+            assert page.get_by_role("tab", name="Overview").get_attribute("aria-selected") == "true"
+            assert page.locator("#mortality-risk").inner_text().endswith("%")
+            assert _canvas_has_pixels(page, "#weekly-steps-chart")
+            assert _canvas_has_pixels(page, "#survival-chart")
+            assert _canvas_has_pixels(page, "#weekly-sparkline")
+            assert "Activity Pattern Multiplier" not in page.locator("body").inner_text()
+            assert "FPCA score" not in page.locator("body").inner_text()
 
+            page.get_by_role("tab", name="Overview").focus()
+            page.keyboard.press("ArrowRight")
+            assert (
+                page.get_by_role("tab", name="Activity Rhythm").get_attribute("aria-selected")
+                == "true"
+            )
             page.wait_for_function(
                 """() => {
-                    const weeklySteps = document.querySelector('#weeklySteps')
-                    return weeklySteps && weeklySteps.textContent.trim() !== 'Loading...'
+                  const canvas = document.querySelector('#hourly-steps-chart')
+                  return canvas && canvas.width > 0 && canvas.height > 0
                 }"""
             )
+            assert _canvas_has_pixels(page, "#hourly-steps-chart")
+            assert page.locator("#active-window").inner_text() != "Unavailable"
 
-            page.wait_for_function(
-                """() => {
-                    const canvas = document.querySelector('#fpcaChart')
-                    return canvas && canvas.width > 0 && canvas.height > 0
-                }"""
+            page.keyboard.press("End")
+            assert (
+                page.get_by_role("tab", name="Configuration").get_attribute("aria-selected")
+                == "true"
             )
-
-            page.wait_for_function(
-                """selector => {
-                    const canvas = document.querySelector(selector)
-                    if (!canvas || canvas.width === 0 || canvas.height === 0) {
-                      return false
-                    }
-
-                    const context = canvas.getContext('2d')
-                    const { data } = context.getImageData(0, 0, canvas.width, canvas.height)
-                    for (let index = 0; index < data.length; index += 1) {
-                      if (data[index] !== 0) {
-                        return true
-                      }
-                    }
-
-                    return false
-                }""",
-                arg="#fpcaChart",
-            )
-
-            assert page.locator("#fpcaScore").inner_text().strip() != "-"
-            assert page.locator("#weeklySteps").inner_text().strip() != "-"
-            assert page.locator("#rawJson").count() == 0
-            assert page.get_by_role("tab", name="Raw JSON").count() == 0
-            assert _canvas_has_pixels(page, "#fpcaChart")
-
-            page.get_by_role("tab", name="Configuration").click()
             assert page.locator("#profile-form").is_visible()
             assert page.locator('[name="steps_entity_id"]').input_value()
             assert page.get_by_role("button", name="Save profile").is_visible()
+
+            page.set_viewport_size({"width": 390, "height": 844})
+            page.get_by_role("tab", name="Overview").click()
+            page.wait_for_timeout(100)
+            dimensions = page.evaluate(
+                """() => ({
+                  documentWidth: document.documentElement.scrollWidth,
+                  viewportWidth: document.documentElement.clientWidth
+                })"""
+            )
+            assert dimensions["documentWidth"] <= dimensions["viewportWidth"] + 1
+            assert (
+                page.locator(".overview-top-grid").evaluate(
+                    "element => getComputedStyle(element).gridTemplateColumns.split(' ').length"
+                )
+                == 1
+            )
+            assert not console_errors
         finally:
             browser.close()

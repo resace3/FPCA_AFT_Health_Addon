@@ -63,3 +63,14 @@ def test_api_aft_uses_recorder_db_and_renders_week_curve(monkeypatch, tmp_path):
 
     assert fpca["summary"]["total_steps_last_7_complete_days"] > 0
     assert max(curves["fitbit_week_curve"]) > 0
+
+    ui = fpca["ui"]
+    assert len(ui["daily_labels"]) == 7
+    assert len(ui["daily_steps"]) == 7
+    assert len(ui["hourly_average_steps"]) == 24
+    assert sum(ui["daily_steps"]) == fpca["summary"]["total_steps_last_7_complete_days"]
+    assert ui["most_active_window"]["window_hours"] == 4
+    assert 0 <= ui["most_active_window"]["start_hour"] <= 23
+    assert ui["previous_week_total_steps"] is None
+    assert ui["weekly_change_percent"] is None
+    assert ui["period_comparison"]["baseline"] is None

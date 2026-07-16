@@ -1,5 +1,5 @@
 name: Activity Health Insights
-version: "0.2.0"
+version: "0.3.0"
 slug: fpca_aft_addon
 description: Step-pattern health estimates from Home Assistant activity data
 

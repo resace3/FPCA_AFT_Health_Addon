@@ -13,8 +13,23 @@ def test_frontend_index_served():
     client = app.app.test_client()
     response = client.get("/")
     assert response.status_code == 200
+    assert b">Overview<" in response.data
+    assert b">Activity Rhythm<" in response.data
     assert b">Configuration<" in response.data
     assert b'id="profile-form"' in response.data
+    assert response.data.count(b'role="tab"') == 3
+    assert b"Activity Pattern Multiplier" not in response.data
+    assert b"FPCA score" not in response.data
+
+
+def test_frontend_uses_ingress_safe_api_paths():
+    client = app.app.test_client()
+    response = client.get("/app.js")
+    assert response.status_code == 200
+    source = response.get_data(as_text=True)
+    for endpoint in ("./api/health", "./api/aft", "./api/profile"):
+        assert endpoint in source
+    assert 'fetch("/api/' not in source
 
 
 def test_profile_endpoint_round_trip(tmp_path, monkeypatch):
