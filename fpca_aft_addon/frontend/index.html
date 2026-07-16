@@ -61,6 +61,68 @@
       >
         Activity Pattern
       </button>
+      <button
+        class="tab-button"
+        id="tab-button-profile"
+        type="button"
+        data-tab="profile"
+        role="tab"
+        aria-selected="false"
+        aria-controls="tab-profile"
+      >
+        Configuration
+      </button>
+    </section>
+
+    <section
+      class="tab-panel"
+      id="tab-profile"
+      role="tabpanel"
+      aria-labelledby="tab-button-profile"
+    >
+      <article class="profile-card">
+        <div class="profile-header">
+          <div>
+            <h2 class="profile-title">Configuration</h2>
+            <p class="profile-copy">Saved privately in this add-on and used when calculating your health estimate.</p>
+          </div>
+          <p class="profile-status" id="profile-status" role="status"></p>
+        </div>
+        <form id="profile-form" class="profile-form">
+          <fieldset>
+            <legend>Activity data</legend>
+            <div class="form-grid">
+              <label>Steps entity ID<input name="steps_entity_id" required /></label>
+              <label>Timezone<input name="timezone" required /></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>About you</legend>
+            <div class="form-grid">
+              <label>Age<input name="age" type="number" min="1" max="120" required /></label>
+              <label>BMI<input name="bmi" type="number" min="1" max="100" step="0.1" required /></label>
+              <label>Sex<select name="sex"><option>Female</option><option>Male</option></select></label>
+              <label>Race / ethnicity<select name="race_ethnicity"><option>Mexican American</option><option>Non-Hispanic Asian</option><option>Non-Hispanic Black</option><option>Non-Hispanic White</option><option>Other Hispanic</option><option>Other Race - Including Multi-Racial</option></select></label>
+              <label>Education<select name="education"><option>less_than_9th_grade</option><option>9-11th grade</option><option>High school/GED</option><option>Some college/AA</option><option>College graduate+</option></select></label>
+              <label>Marital status<select name="marital_status"><option>Divorced</option><option>Living with partner</option><option>Married</option><option>Never married</option><option>Separated</option><option>Widowed</option></select></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Health history</legend>
+            <div class="form-grid">
+              <label>Smoking status<select name="smoking_status"><option>Current</option><option>Former</option><option>Never</option></select></label>
+              <label>Alcohol use<select name="alcohol_use"><option>No</option><option>Yes</option></select></label>
+              <label>Hypertension<select name="hypertension"><option>No</option><option>Yes</option></select></label>
+              <label>Diabetes<select name="diabetes"><option>No</option><option>Yes</option></select></label>
+              <label>Heart attack<select name="heart_attack"><option>No</option><option>Yes</option></select></label>
+              <label>Stroke<select name="stroke"><option>No</option><option>Yes</option></select></label>
+              <label>Cancer<select name="cancer"><option>No</option><option>Yes</option></select></label>
+              <label>Self-rated health<select name="self_rated_health"><option>Excellent</option><option>Very good</option><option>Good</option><option>Fair</option><option>Poor</option></select></label>
+            </div>
+          </fieldset>
+          <button class="save-profile-button" type="submit">Save profile</button>
+        </form>
+      </article>
     </section>
 
     <section
@@ -226,6 +288,6 @@
     </footer>
   </main>
 
-  <script src="app.js?v=5"></script>
+  <script src="app.js?v=6"></script>
 </body>
 </html>

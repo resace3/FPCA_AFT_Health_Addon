@@ -92,5 +92,10 @@ def test_frontend_renders_fpca_chart():
             assert page.locator("#rawJson").count() == 0
             assert page.get_by_role("tab", name="Raw JSON").count() == 0
             assert _canvas_has_pixels(page, "#fpcaChart")
+
+            page.get_by_role("tab", name="Configuration").click()
+            assert page.locator("#profile-form").is_visible()
+            assert page.locator('[name="steps_entity_id"]').input_value()
+            assert page.get_by_role("button", name="Save profile").is_visible()
         finally:
             browser.close()

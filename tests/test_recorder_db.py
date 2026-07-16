@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import app
+
 from recorder_db_fixture import create_recorder_db
 
 ENTITY_ID = "sensor.nick_r_steps"
@@ -17,7 +18,7 @@ def test_api_aft_uses_recorder_db_and_renders_week_curve(monkeypatch, tmp_path):
     monkeypatch.setenv("HA_RECORDER_DB_PATH", str(db_path))
     monkeypatch.setattr(
         app,
-        "load_options",
+        "load_profile",
         lambda: {
             "steps_entity_id": ENTITY_ID,
             "timezone": "UTC",

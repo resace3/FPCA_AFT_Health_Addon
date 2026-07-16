@@ -4,8 +4,15 @@ import os
 
 import numpy as np
 import pandas as pd
-from flask import Flask, abort, jsonify, send_from_directory
-
+from flask import (
+    Flask,
+    abort,
+    jsonify,
+    send_from_directory,
+)
+from flask import (
+    request as flask_request,
+)
 from fpca import get_fpca_score_from_home_assistant_steps
 
 app = Flask(__name__)
@@ -45,13 +52,35 @@ def sanitize_for_json(value):
 # CONFIG
 # =========================================================
 
-MEAN_CURVE_FILE = "nhanes_mean_curve.csv"
+ADDON_DIR = os.path.dirname(os.path.abspath(__file__))
 
-EIGENFUNCTION_FILE = "nhanes_first_eigenfunction.csv"
+MEAN_CURVE_FILE = os.path.join(ADDON_DIR, "nhanes_mean_curve.csv")
 
-FPCA_SPLINE_LOOKUP_FILE = "fpca_spline_lookup.csv"
+EIGENFUNCTION_FILE = os.path.join(ADDON_DIR, "nhanes_first_eigenfunction.csv")
+
+FPCA_SPLINE_LOOKUP_FILE = os.path.join(ADDON_DIR, "fpca_spline_lookup.csv")
 
 OPTIONS_FILE = os.environ.get("OPTIONS_FILE", "/data/options.json")
+PROFILE_FILE = os.environ.get("PROFILE_FILE", "/data/health_profile.json")
+
+DEFAULT_PROFILE = {
+    "steps_entity_id": "sensor.nick_r_steps",
+    "timezone": "America/New_York",
+    "age": 50,
+    "bmi": 27,
+    "sex": "Male",
+    "race_ethnicity": "Non-Hispanic White",
+    "education": "College graduate+",
+    "marital_status": "Never married",
+    "smoking_status": "Never",
+    "alcohol_use": "Yes",
+    "hypertension": "No",
+    "diabetes": "No",
+    "heart_attack": "No",
+    "stroke": "No",
+    "cancer": "No",
+    "self_rated_health": "Very good",
+}
 
 
 def _debug_enabled():
@@ -70,10 +99,44 @@ fpca_spline_lookup = pd.read_csv(FPCA_SPLINE_LOOKUP_FILE)
 # =========================================================
 
 
-def load_options():
+def load_profile():
+    """Load the dashboard-managed profile, migrating legacy add-on options once."""
+    profile = DEFAULT_PROFILE.copy()
+    for filename in (OPTIONS_FILE, PROFILE_FILE):
+        try:
+            with open(filename, "r", encoding="utf-8") as file:
+                stored = json.load(file)
+            if isinstance(stored, dict):
+                profile.update({key: stored[key] for key in profile if key in stored})
+        except (FileNotFoundError, json.JSONDecodeError):
+            continue
+    return profile
 
-    with open(OPTIONS_FILE, "r") as f:
-        return json.load(f)
+
+def save_profile(profile):
+    with open(PROFILE_FILE, "w", encoding="utf-8") as file:
+        json.dump(profile, file, indent=2)
+
+
+def validate_profile(payload):
+    if not isinstance(payload, dict):
+        raise ValueError("Profile must be a JSON object")
+
+    profile = DEFAULT_PROFILE.copy()
+    profile.update({key: payload[key] for key in profile if key in payload})
+    if not isinstance(profile["steps_entity_id"], str) or not profile["steps_entity_id"].strip():
+        raise ValueError("A steps entity is required")
+    if not isinstance(profile["timezone"], str) or not profile["timezone"].strip():
+        raise ValueError("A timezone is required")
+    profile["steps_entity_id"] = profile["steps_entity_id"].strip()
+    profile["timezone"] = profile["timezone"].strip()
+    profile["age"] = int(profile["age"])
+    profile["bmi"] = float(profile["bmi"])
+    if profile["age"] < 1 or profile["age"] > 120:
+        raise ValueError("Age must be between 1 and 120")
+    if profile["bmi"] <= 0 or profile["bmi"] > 100:
+        raise ValueError("BMI must be between 0 and 100")
+    return profile
 
 
 # =========================================================
@@ -84,13 +147,13 @@ def load_options():
 @app.route("/")
 def frontend_index():
 
-    return send_from_directory("frontend", "index.html")
+    return send_from_directory(os.path.join(ADDON_DIR, "frontend"), "index.html")
 
 
 @app.route("/<path:path>")
 def frontend_files(path):
 
-    return send_from_directory("frontend", path)
+    return send_from_directory(os.path.join(ADDON_DIR, "frontend"), path)
 
 
 # =========================================================
@@ -251,6 +314,18 @@ def health():
     return jsonify({"status": "ok", "message": "FPCA AFT backend running"})
 
 
+@app.route("/api/profile", methods=["GET", "PUT"])
+def profile():
+    if flask_request.method == "GET":
+        return jsonify(load_profile())
+    try:
+        updated_profile = validate_profile(flask_request.get_json(silent=True))
+        save_profile(updated_profile)
+        return jsonify(updated_profile)
+    except (TypeError, ValueError) as exc:
+        return jsonify({"error": "invalid_profile", "message": str(exc)}), 400
+
+
 @app.route("/api/debug/supervisor")
 def debug_supervisor():
     if not _debug_enabled():
@@ -274,7 +349,7 @@ def debug_supervisor():
 @app.route("/api/aft")
 def api_aft():
     try:
-        options = load_options()
+        options = load_profile()
 
         print("\n==============================")
         print("RUNNING REAL HOME ASSISTANT FPCA")
