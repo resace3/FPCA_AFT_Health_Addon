@@ -32,7 +32,7 @@ def _wait_for_canvas_pixels(page, selector):
           return data.some(channel => channel !== 0)
         }
         """,
-        selector,
+        arg=selector,
     )
 
 
