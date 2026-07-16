@@ -3,15 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="color-scheme" content="light" />
   <title>Activity Health Insights</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com" />
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link
-    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
-    rel="stylesheet"
-  />
-  <link rel="stylesheet" href="style.css" />
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <link rel="stylesheet" href="style.css?v=0.3.0" />
+  <script defer src="chart.umd.min.js?v=4.4.7"></script>
+  <script defer src="app.js?v=0.3.0"></script>
 </head>
 
 <body>
@@ -19,275 +15,235 @@
     <header class="topbar">
       <div class="brand">
         <div class="brand-icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" width="24" height="24" fill="none">
-            <path d="M5 19V9" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M12 19V5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M19 19v-7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
-            <path d="M4 19h16" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+          <svg viewBox="0 0 24 24" width="27" height="27" fill="none">
+            <path d="M3 14h3l2.1-7 3.4 11 2.4-8 1.8 4H21" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" />
           </svg>
         </div>
-        <div>
-          <h1 class="brand-title">Activity Health Insights</h1>
-          <p class="brand-subtitle">Step patterns and long-term health estimates for Home Assistant</p>
+        <div class="brand-copy">
+          <h1>Activity Health Insights</h1>
+          <p>Step patterns and long-term health estimates for Home Assistant</p>
         </div>
       </div>
 
-      <div class="status-pill">
+      <div class="status-pill is-checking" id="connection-status" role="status" aria-live="polite">
         <span class="status-dot" aria-hidden="true"></span>
-        Connected to Home Assistant
+        <span id="connection-status-text">Checking connection</span>
       </div>
     </header>
 
-    <section class="tabs" role="tablist" aria-label="Health dashboard views">
-      <button
-        class="tab-button active"
-        id="tab-button-aft"
-        type="button"
-        data-tab="aft"
-        role="tab"
-        aria-selected="true"
-        aria-controls="tab-aft"
-      >
-        Health Estimate
+    <nav class="tabs" role="tablist" aria-label="Activity health views">
+      <button class="tab-button active" id="tab-button-overview" type="button" data-tab="overview" role="tab" aria-selected="true" aria-controls="tab-overview" tabindex="0">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 19V9l8-6 8 6v10a2 2 0 0 1-2 2h-4v-7h-4v7H6a2 2 0 0 1-2-2Z" /></svg>
+        <span>Overview</span>
       </button>
-      <button
-        class="tab-button"
-        id="tab-button-fpca"
-        type="button"
-        data-tab="fpca"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-fpca"
-      >
-        Activity Pattern
+      <button class="tab-button" id="tab-button-rhythm" type="button" data-tab="rhythm" role="tab" aria-selected="false" aria-controls="tab-rhythm" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 13h4l2-7 4 13 2-6h6" /></svg>
+        <span>Activity Rhythm</span>
       </button>
-      <button
-        class="tab-button"
-        id="tab-button-profile"
-        type="button"
-        data-tab="profile"
-        role="tab"
-        aria-selected="false"
-        aria-controls="tab-profile"
-      >
-        Configuration
+      <button class="tab-button" id="tab-button-configuration" type="button" data-tab="configuration" role="tab" aria-selected="false" aria-controls="tab-configuration" tabindex="-1">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6h10M18 6h2M4 12h3m4 0h9M4 18h8m4 0h4M14 4v4M7 10v4m5 2v4" /></svg>
+        <span>Configuration</span>
       </button>
-    </section>
+    </nav>
 
-    <section
-      class="tab-panel"
-      id="tab-profile"
-      role="tabpanel"
-      aria-labelledby="tab-button-profile"
-    >
-      <article class="profile-card">
-        <div class="profile-header">
-          <div>
-            <h2 class="profile-title">Configuration</h2>
-            <p class="profile-copy">Saved privately in this add-on and used when calculating your health estimate.</p>
+    <section class="tab-panel active" id="tab-overview" role="tabpanel" aria-labelledby="tab-button-overview">
+      <div class="overview-top-grid">
+        <article class="card risk-card" id="risk-card" aria-busy="true">
+          <div class="card-heading-row">
+            <h2>Estimated 10-year risk of mortality</h2>
+            <button class="info-button" type="button" aria-label="About this mortality estimate" title="A model-based estimate using your configured profile and recent activity pattern.">i</button>
           </div>
-          <p class="profile-status" id="profile-status" role="status"></p>
-        </div>
-        <form id="profile-form" class="profile-form">
-          <fieldset>
-            <legend>Activity data</legend>
-            <div class="form-grid">
-              <label>Steps entity ID<input name="steps_entity_id" required /></label>
-              <label>Timezone<input name="timezone" required /></label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend>About you</legend>
-            <div class="form-grid">
-              <label>Age<input name="age" type="number" min="1" max="120" required /></label>
-              <label>BMI<input name="bmi" type="number" min="1" max="100" step="0.1" required /></label>
-              <label>Sex<select name="sex"><option>Female</option><option>Male</option></select></label>
-              <label>Race / ethnicity<select name="race_ethnicity"><option>Mexican American</option><option>Non-Hispanic Asian</option><option>Non-Hispanic Black</option><option>Non-Hispanic White</option><option>Other Hispanic</option><option>Other Race - Including Multi-Racial</option></select></label>
-              <label>Education<select name="education"><option>less_than_9th_grade</option><option>9-11th grade</option><option>High school/GED</option><option>Some college/AA</option><option>College graduate+</option></select></label>
-              <label>Marital status<select name="marital_status"><option>Divorced</option><option>Living with partner</option><option>Married</option><option>Never married</option><option>Separated</option><option>Widowed</option></select></label>
-            </div>
-          </fieldset>
-          <fieldset>
-            <legend>Health history</legend>
-            <div class="form-grid">
-              <label>Smoking status<select name="smoking_status"><option>Current</option><option>Former</option><option>Never</option></select></label>
-              <label>Alcohol use<select name="alcohol_use"><option>No</option><option>Yes</option></select></label>
-              <label>Hypertension<select name="hypertension"><option>No</option><option>Yes</option></select></label>
-              <label>Diabetes<select name="diabetes"><option>No</option><option>Yes</option></select></label>
-              <label>Heart attack<select name="heart_attack"><option>No</option><option>Yes</option></select></label>
-              <label>Stroke<select name="stroke"><option>No</option><option>Yes</option></select></label>
-              <label>Cancer<select name="cancer"><option>No</option><option>Yes</option></select></label>
-              <label>Self-rated health<select name="self_rated_health"><option>Excellent</option><option>Very good</option><option>Good</option><option>Fair</option><option>Poor</option></select></label>
-            </div>
-          </fieldset>
-          <button class="save-profile-button" type="submit">Save profile</button>
-        </form>
-      </article>
-    </section>
-
-    <section
-      class="tab-panel active"
-      id="tab-aft"
-      role="tabpanel"
-      aria-labelledby="tab-button-aft"
-    >
-      <div class="metric-grid">
-        <article class="metric-card">
-          <div class="metric-icon violet" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
-              <path d="M12 21s7-4.6 7-11.2A4.8 4.8 0 0 0 14.2 5 4.7 4.7 0 0 0 12 5.6 4.7 4.7 0 0 0 9.8 5 4.8 4.8 0 0 0 5 9.8C5 16.4 12 21 12 21Z" stroke="currentColor" stroke-width="2" stroke-linejoin="round" />
-              <path d="M8 12h2l1.2-2.6 2.1 5.2L15 12h1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+          <div class="gauge" role="img" aria-label="10-year mortality risk is loading" id="risk-gauge">
+            <svg viewBox="0 0 240 145" aria-hidden="true">
+              <defs>
+                <linearGradient id="gauge-gradient" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#0fa968" />
+                  <stop offset="1" stop-color="#57dd58" />
+                </linearGradient>
+              </defs>
+              <path class="gauge-track" d="M30 120 A90 90 0 0 1 210 120" pathLength="100" />
+              <path class="gauge-value" id="risk-gauge-value" d="M30 120 A90 90 0 0 1 210 120" pathLength="100" />
+              <line class="gauge-needle" id="risk-gauge-needle" x1="120" y1="120" x2="120" y2="48" />
+              <circle class="gauge-hub" cx="120" cy="120" r="6" />
             </svg>
+            <div class="gauge-copy">
+              <strong id="mortality-risk">Loading…</strong>
+              <span>Model estimate</span>
+            </div>
           </div>
-          <div>
-            <p class="metric-label">10-Year Risk Estimate</p>
-            <p class="metric-value" id="mortality10yr" data-metric-value="mortality10yr">Loading...</p>
-            <p class="metric-subtext">Long-term model estimate</p>
-          </div>
+          <p class="quiet-strip">Informational estimate, not a diagnosis.</p>
         </article>
 
-        <article class="metric-card">
-          <div class="metric-icon indigo" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
-              <path d="M4 18c2.8 0 2.8-12 5.6-12S12.4 18 15.2 18 18 6 20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55" />
-            </svg>
+        <article class="card weekly-card" aria-busy="true">
+          <div class="weekly-metric">
+            <span class="metric-icon blue" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><path d="M5 13c2.5 0 3-5 5.5-5 1.6 0 2.1 2.2 3.5 2.2 1.8 0 2.2-3.2 4.5-3.2M5 17c2.8 0 3.6-3.8 6-3.8 1.7 0 2.2 2 3.8 2 1.4 0 2.2-1.2 4.2-1.2" /></svg>
+            </span>
+            <div>
+              <p class="eyebrow">Weekly Steps</p>
+              <strong class="big-metric" id="weekly-steps">Loading…</strong>
+              <p class="metric-detail" id="weekly-change">Last 7 complete days</p>
+            </div>
           </div>
-          <div>
-            <p class="metric-label">Activity Pattern Multiplier</p>
-            <p class="metric-value" id="fpcaScore" data-metric-value="fpcaScore">Loading...</p>
-            <p class="metric-subtext">How your pattern shifts from the reference curve</p>
-          </div>
-        </article>
-
-        <article class="metric-card">
-          <div class="metric-icon sky" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
-              <path d="M7.5 18.5c1.5.7 3.2.9 4.7.2 2-.9 2.7-2.8 4.4-3.5 1.3-.5 2.4-.1 3.4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M5 14.5c1.7.5 3.3.4 4.8-.4 1.8-1 2.2-2.7 3.8-3.4 1.3-.6 2.7-.2 4 .7" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72" />
-              <path d="M3.5 10.3c1.5.3 2.8.2 4-.5 1.6-.9 2.1-2.4 3.7-3 1.2-.4 2.6 0 3.8.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".48" />
-            </svg>
-          </div>
-          <div>
-            <p class="metric-label">Weekly Steps</p>
-            <p class="metric-value" id="weeklySteps" data-metric-value="weeklySteps">Loading...</p>
-            <p class="metric-subtext">Last 7 complete days</p>
+          <div class="chart-box weekly-chart-box">
+            <canvas id="weekly-steps-chart" role="img" aria-label="Daily steps for the last seven complete days"></canvas>
+            <p class="chart-fallback" id="weekly-chart-fallback" hidden>Daily step history is unavailable.</p>
           </div>
         </article>
       </div>
 
-      <div class="chart-grid">
-        <article class="chart-card">
-          <div class="chart-header">
-            <h2 class="chart-title">Estimated Survival Over Time</h2>
-            <span class="legend-badge">
-              <span class="legend-dot"></span>
-              Survival Probability
-            </span>
+      <article class="card survival-card" aria-busy="true">
+        <div class="card-heading-row">
+          <h2>Predicted survival probability</h2>
+          <span class="legend"><span></span>Survival probability</span>
+        </div>
+        <div class="chart-box survival-chart-box">
+          <canvas id="survival-chart" role="img" aria-label="Predicted survival probability from zero to ten years"></canvas>
+          <p class="chart-fallback" id="survival-chart-fallback" hidden>Survival estimate is unavailable.</p>
+        </div>
+      </article>
+
+      <div class="overview-bottom-grid">
+        <article class="card change-card">
+          <div class="insight-title-row">
+            <span class="round-icon green" aria-hidden="true">↗</span>
+            <div>
+              <h2>What changed this week</h2>
+              <p id="week-change-copy">Loading current week activity…</p>
+            </div>
           </div>
-          <div class="chart-wrap">
-            <canvas id="survivalChart"></canvas>
+          <div class="chart-box sparkline-box">
+            <canvas id="weekly-sparkline" role="img" aria-label="Daily step trend for the current complete week"></canvas>
           </div>
         </article>
 
-        <article class="chart-card">
-          <div class="chart-header">
-            <h2 class="chart-title">Estimated Risk Over Time</h2>
-            <span class="legend-badge">
-              <span class="legend-dot red"></span>
-              Death Probability
-            </span>
-          </div>
-          <div class="chart-wrap">
-            <canvas id="deathChart"></canvas>
+        <article class="card meaning-card">
+          <h2>What this means</h2>
+          <div class="meaning-list">
+            <div class="meaning-row">
+              <span class="round-icon green" aria-hidden="true">↗</span>
+              <p><strong>Your strongest pattern</strong><span id="strongest-pattern">Loading activity timing…</span></p>
+            </div>
+            <div class="meaning-row">
+              <span class="round-icon orange" aria-hidden="true">☀</span>
+              <p><strong>One useful opportunity</strong><span id="activity-opportunity">Loading activity timing…</span></p>
+            </div>
+            <div class="meaning-row">
+              <span class="round-icon blue" aria-hidden="true">∿</span>
+              <p><strong>How to read the estimate</strong><span>Focus on the trend over time, not one isolated number.</span></p>
+            </div>
           </div>
         </article>
       </div>
 
-      <article class="insights-card">
-        <h2 class="insights-title">What This Means</h2>
-        <p class="insights-body">These estimates combine recent activity patterns with a long-term health model.</p>
-        <ul class="insight-list">
-          <li>
-            <span class="check-icon" aria-hidden="true">&check;</span>
-            Higher activity is generally associated with a lower predicted mortality risk.
-          </li>
-          <li>
-            <span class="check-icon" aria-hidden="true">&check;</span>
-            The activity multiplier rebuilds your weekly pattern from the NHANES reference curve.
-          </li>
-          <li>
-            <span class="check-icon" aria-hidden="true">&check;</span>
-            Use this add-on for informational analysis only, not medical diagnosis.
-          </li>
-        </ul>
-      </article>
+      <p class="overview-disclaimer">Estimates combine recent activity patterns with a long-term health model. Higher activity is generally associated with a lower predicted mortality risk. Informational only. Not intended for medical diagnosis.</p>
     </section>
 
-    <section
-      class="tab-panel"
-      id="tab-fpca"
-      role="tabpanel"
-      aria-labelledby="tab-button-fpca"
-    >
-      <div class="metric-grid two">
-        <article class="metric-card">
-          <div class="metric-icon indigo" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
-              <path d="M4 18c2.8 0 2.8-12 5.6-12S12.4 18 15.2 18 18 6 20 6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M4 21h16" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".55" />
-            </svg>
+    <section class="tab-panel" id="tab-rhythm" role="tabpanel" aria-labelledby="tab-button-rhythm" hidden>
+      <div class="rhythm-layout">
+        <article class="card hourly-card" aria-busy="true">
+          <div class="card-heading-row">
+            <h2>Average hourly steps</h2>
+            <button class="info-button" type="button" aria-label="About average hourly steps" title="Average steps for each local clock hour across the represented complete days.">i</button>
           </div>
-          <div>
-            <p class="metric-label">Activity Pattern Multiplier</p>
-            <p class="metric-value" data-metric-value="fpcaScore">Loading...</p>
-            <p class="metric-subtext">Amount applied to the NHANES activity-shape function</p>
+          <p class="card-subtitle" id="hourly-days-copy">Loading complete-day activity…</p>
+          <div class="chart-box hourly-chart-box">
+            <canvas id="hourly-steps-chart" role="img" aria-label="Average hourly steps across the last seven complete days"></canvas>
+            <p class="chart-fallback" id="hourly-chart-fallback" hidden>Hourly activity is unavailable.</p>
           </div>
         </article>
 
-        <article class="metric-card">
-          <div class="metric-icon sky" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="25" height="25" fill="none">
-              <path d="M7.5 18.5c1.5.7 3.2.9 4.7.2 2-.9 2.7-2.8 4.4-3.5 1.3-.5 2.4-.1 3.4.6" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
-              <path d="M5 14.5c1.7.5 3.3.4 4.8-.4 1.8-1 2.2-2.7 3.8-3.4 1.3-.6 2.7-.2 4 .7" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72" />
-              <path d="M3.5 10.3c1.5.3 2.8.2 4-.5 1.6-.9 2.1-2.4 3.7-3 1.2-.4 2.6 0 3.8.8" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".48" />
-            </svg>
-          </div>
-          <div>
-            <p class="metric-label">Weekly Steps</p>
-            <p class="metric-value" data-metric-value="weeklySteps">Loading...</p>
-            <p class="metric-subtext">Last 7 complete days</p>
-          </div>
-        </article>
+        <div class="rhythm-side-stack">
+          <article class="card active-window-card">
+            <span class="metric-icon purple" aria-hidden="true">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" /><path d="M12 7v5l4 2" /></svg>
+            </span>
+            <div>
+              <h2>Most active window</h2>
+              <strong id="active-window">Loading…</strong>
+              <p>Your highest average activity window</p>
+            </div>
+          </article>
+
+          <article class="card comparison-card">
+            <h2>Day comparison</h2>
+            <p class="card-subtitle" id="comparison-baseline">Checking for comparison history…</p>
+            <div class="comparison-list">
+              <div class="comparison-row"><span aria-hidden="true">☀</span><p>Morning <small>6 AM–12 PM</small></p><strong id="comparison-morning">Loading…</strong></div>
+              <div class="comparison-row"><span aria-hidden="true">☀</span><p>Afternoon <small>12 PM–6 PM</small></p><strong id="comparison-afternoon">Loading…</strong></div>
+              <div class="comparison-row"><span class="moon" aria-hidden="true">☾</span><p>Evening <small>6 PM–12 AM</small></p><strong id="comparison-evening">Loading…</strong></div>
+            </div>
+          </article>
+        </div>
       </div>
 
-      <article class="chart-card large">
-        <div class="chart-header">
-          <h2 class="chart-title">Your Activity Pattern vs NHANES Mean</h2>
-          <div class="legend-group">
-            <span class="legend-badge">
-              <span class="legend-dot dark"></span>
-              Your Pattern Curve
-            </span>
-            <span class="legend-badge">
-              <span class="legend-dot violet"></span>
-              NHANES Mean Curve
-            </span>
-          </div>
-        </div>
-        <div class="chart-wrap fpca">
-          <canvas id="fpcaChart"></canvas>
-        </div>
-        <p class="reference-note">Your pattern curve is reconstructed as: NHANES mean curve + activity multiplier × NHANES activity-shape function. Raw Fitbit hourly data is not plotted.</p>
-      </article>
+      <aside class="info-banner" role="note">
+        <span aria-hidden="true">i</span>
+        <p>Regular activity throughout the day supports a healthier long-term pattern.</p>
+      </aside>
     </section>
 
-    <footer class="footer">
-      <span>Activity Health Insights</span>
-      <span>Informational only. Not intended for medical diagnosis.</span>
-    </footer>
+    <section class="tab-panel" id="tab-configuration" role="tabpanel" aria-labelledby="tab-button-configuration" hidden>
+      <article class="configuration-intro card">
+        <div>
+          <h2>Configuration</h2>
+          <p>Saved privately inside this Home Assistant add-on and used when calculating your health estimate.</p>
+        </div>
+        <p class="profile-status" id="profile-status" role="status" aria-live="polite"></p>
+      </article>
+
+      <form id="profile-form" class="profile-form" novalidate>
+        <fieldset class="card">
+          <legend>Activity data</legend>
+          <div class="form-grid two-columns">
+            <label class="form-field" for="steps-entity-id"><span>Steps entity ID</span><input id="steps-entity-id" name="steps_entity_id" autocomplete="off" required /></label>
+            <label class="form-field" for="timezone"><span>Timezone</span><input id="timezone" name="timezone" autocomplete="off" required /></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>About you</legend>
+          <div class="form-grid three-columns">
+            <label class="form-field" for="age"><span>Age</span><input id="age" name="age" type="number" min="1" max="120" required /></label>
+            <label class="form-field" for="sex"><span>Sex</span><select id="sex" name="sex"><option>Female</option><option>Male</option></select></label>
+            <label class="form-field" for="bmi"><span>BMI</span><input id="bmi" name="bmi" type="number" min="1" max="100" step="0.1" required /></label>
+            <label class="form-field span-two" for="race-ethnicity"><span>Race / ethnicity</span><select id="race-ethnicity" name="race_ethnicity"><option>Mexican American</option><option>Non-Hispanic Asian</option><option>Non-Hispanic Black</option><option>Non-Hispanic White</option><option>Other Hispanic</option><option>Other Race - Including Multi-Racial</option></select></label>
+            <label class="form-field" for="education"><span>Education</span><select id="education" name="education"><option>less_than_9th_grade</option><option>9-11th grade</option><option>High school/GED</option><option>Some college/AA</option><option>College graduate+</option></select></label>
+            <label class="form-field" for="marital-status"><span>Marital status</span><select id="marital-status" name="marital_status"><option>Divorced</option><option>Living with partner</option><option>Married</option><option>Never married</option><option>Separated</option><option>Widowed</option></select></label>
+          </div>
+        </fieldset>
+
+        <fieldset class="card">
+          <legend>Health history</legend>
+          <div class="form-grid two-columns">
+            <label class="form-field" for="smoking-status"><span>Smoking status</span><select id="smoking-status" name="smoking_status"><option>Current</option><option>Former</option><option>Never</option></select></label>
+            <label class="form-field" for="alcohol-use"><span>Alcohol use</span><select id="alcohol-use" name="alcohol_use"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="hypertension"><span>Hypertension</span><select id="hypertension" name="hypertension"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="diabetes"><span>Diabetes</span><select id="diabetes" name="diabetes"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="heart-attack"><span>Heart attack</span><select id="heart-attack" name="heart_attack"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="stroke"><span>Stroke</span><select id="stroke" name="stroke"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="cancer"><span>Cancer</span><select id="cancer" name="cancer"><option>No</option><option>Yes</option></select></label>
+            <label class="form-field" for="self-rated-health"><span>Self-rated health</span><select id="self-rated-health" name="self_rated_health"><option>Excellent</option><option>Very good</option><option>Good</option><option>Fair</option><option>Poor</option></select></label>
+          </div>
+        </fieldset>
+
+        <div class="profile-actions">
+          <button class="save-profile-button" id="save-profile" type="submit">Save profile</button>
+          <span>Your information is stored locally in Home Assistant.</span>
+        </div>
+      </form>
+
+      <aside class="privacy-banner" role="note">
+        <span aria-hidden="true">♢</span>
+        <p>These settings are used when calculating your health estimate.<br />They do not leave your device.</p>
+      </aside>
+    </section>
+
+    <section class="dashboard-error" id="dashboard-error" role="alert" hidden>
+      <strong>Activity data could not be loaded.</strong>
+      <span id="dashboard-error-copy">Check your steps entity and timezone in Configuration.</span>
+      <button type="button" id="open-configuration">Open Configuration</button>
+    </section>
   </main>
-
-  <script src="app.js?v=6"></script>
 </body>
 </html>

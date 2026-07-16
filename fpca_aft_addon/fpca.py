@@ -107,6 +107,75 @@ def _resolve_recorder_db_path():
     return None
 
 
+def build_ui_activity_summary(hourly, clean_rows, start_local, end_local):
+    """Build display-only aggregates without changing the FPCA model inputs.
+
+    The model still receives the same 168 hourly values.  This helper only
+    projects those values into user-facing summaries.  Older comparison data
+    is intentionally returned as ``None`` until a longer history window is
+    available, rather than inventing a trend.
+    """
+    daily = hourly.groupby("local_date", sort=True)["steps_increment"].sum().reset_index()
+    hourly_average = (
+        hourly.groupby("local_hour", sort=True)["steps_increment"]
+        .mean()
+        .reindex(range(24), fill_value=0.0)
+        .astype(float)
+    )
+
+    window_hours = 4
+    hourly_values = hourly_average.to_numpy()
+    wrapped = np.concatenate([hourly_values, hourly_values[: window_hours - 1]])
+    window_totals = np.convolve(wrapped, np.ones(window_hours), mode="valid")[:24]
+    most_active_start = int(np.argmax(window_totals))
+
+    period_ranges = {
+        "morning": (6, 12),
+        "afternoon": (12, 18),
+        "evening": (18, 24),
+    }
+    period_current_average = {
+        name: float(hourly_average.iloc[start:end].sum())
+        for name, (start, end) in period_ranges.items()
+    }
+    lowest_daytime_period = min(period_current_average, key=period_current_average.get)
+
+    valid_dates = {value.date() for value in clean_rows["last_changed_local"].dropna().tolist()}
+    daily_dates = [value.isoformat() for value in daily["local_date"].tolist()]
+
+    return {
+        "daily_dates": daily_dates,
+        "daily_labels": [value.strftime("%a") for value in daily["local_date"]],
+        "daily_steps": [float(value) for value in daily["steps_increment"]],
+        "daily_valid": [value in valid_dates for value in daily["local_date"]],
+        "previous_week_total_steps": None,
+        "weekly_change_percent": None,
+        "hourly_average_steps": hourly_average.tolist(),
+        "hourly_average_days": int(len(valid_dates)),
+        "most_active_window": {
+            "start_hour": most_active_start,
+            "end_hour": int((most_active_start + window_hours) % 24),
+            "window_hours": window_hours,
+            "average_steps": float(window_totals[most_active_start]),
+        },
+        "period_comparison": {
+            "baseline": None,
+            "baseline_label": "Unavailable",
+            "morning": None,
+            "afternoon": None,
+            "evening": None,
+            "current_average_steps": period_current_average,
+        },
+        "lowest_activity_daytime_period": lowest_daytime_period,
+        "date_window": {
+            "start_local_date": start_local.date().isoformat(),
+            "end_local_date_exclusive": end_local.date().isoformat(),
+            "complete_days": 7,
+            "valid_days": int(len(valid_dates)),
+        },
+    }
+
+
 def get_fpca_score_from_home_assistant_steps(
     entity_id,
     local_timezone="America/New_York",
@@ -215,17 +284,32 @@ def get_fpca_score_from_home_assistant_steps(
         f"reset_rows={len(reset_rows)}"
     )
 
-    df["hour_local"] = df["last_changed_local"].dt.floor("h")
+    # Normalize the seven complete local calendar days to 24 wall-clock bins
+    # each.  On DST transitions a repeated hour is combined and a missing hour
+    # remains zero, which deliberately preserves the model's 168-value shape.
+    df["local_date"] = df["last_changed_local"].dt.date
+    df["local_hour"] = df["last_changed_local"].dt.hour
 
-    hourly_raw = df.groupby("hour_local")["steps_increment"].sum().reset_index()
+    hourly_raw = df.groupby(["local_date", "local_hour"])["steps_increment"].sum().reset_index()
 
-    full_hours = pd.date_range(start=start_local, end=end_local - timedelta(hours=1), freq="h")
+    local_dates = [start_local.date() + timedelta(days=index) for index in range(7)]
+    hour_grid = pd.DataFrame(
+        [
+            {"local_date": local_date, "local_hour": hour}
+            for local_date in local_dates
+            for hour in range(24)
+        ]
+    )
 
-    hour_grid = pd.DataFrame({"hour_local": full_hours})
-
-    hourly = hour_grid.merge(hourly_raw, on="hour_local", how="left")
+    hourly = hour_grid.merge(hourly_raw, on=["local_date", "local_hour"], how="left")
 
     hourly["steps_increment"] = hourly["steps_increment"].fillna(0)
+
+    hourly["hour_local"] = [
+        datetime.combine(row.local_date, datetime.min.time(), tzinfo=local_tz)
+        + timedelta(hours=int(row.local_hour))
+        for row in hourly.itertuples(index=False)
+    ]
 
     hourly["week_hour"] = np.arange(len(hourly))
 
@@ -248,7 +332,7 @@ def get_fpca_score_from_home_assistant_steps(
     hourly["cumulative_score"] = hourly["score_contribution"].cumsum()
 
     daily_summary = (
-        df.assign(local_date=df["last_changed_local"].dt.date.astype(str))
+        df.assign(local_date=df["local_date"].astype(str))
         .groupby("local_date")
         .agg(
             max_cumulative=("steps_cumulative", "max"),
@@ -257,6 +341,8 @@ def get_fpca_score_from_home_assistant_steps(
         )
         .reset_index()
     )
+
+    ui_summary = build_ui_activity_summary(hourly, df, start_local, end_local)
 
     return {
         "fpca_score_1": fpca_score_1,
@@ -285,6 +371,7 @@ def get_fpca_score_from_home_assistant_steps(
             "min_centered_value": float(fitbit_centered.min()),
             "max_centered_value": float(fitbit_centered.max()),
         },
+        "ui": ui_summary,
         "curves": {
             "fitbit_week_curve": fitbit_week_curve.tolist(),
             "nhanes_mean_curve": nhanes_mean_curve.tolist(),
