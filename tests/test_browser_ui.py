@@ -18,7 +18,21 @@ def _canvas_has_pixels(page, selector):
           return data.some(channel => channel !== 0)
         }
         """,
-        selector,
+        arg=selector,
+    )
+
+
+def _wait_for_canvas_pixels(page, selector):
+    page.wait_for_function(
+        """
+        selector => {
+          const canvas = document.querySelector(selector)
+          if (!canvas || canvas.width === 0 || canvas.height === 0) return false
+          const { data } = canvas.getContext("2d").getImageData(0, 0, canvas.width, canvas.height)
+          return data.some(channel => channel !== 0)
+        }
+        """,
+        arg=selector,
     )
 
 
@@ -65,12 +79,7 @@ def test_three_tab_dashboard_is_functional_and_responsive():
                 page.get_by_role("tab", name="Activity Rhythm").get_attribute("aria-selected")
                 == "true"
             )
-            page.wait_for_function(
-                """() => {
-                  const canvas = document.querySelector('#hourly-steps-chart')
-                  return canvas && canvas.width > 0 && canvas.height > 0
-                }"""
-            )
+            _wait_for_canvas_pixels(page, "#hourly-steps-chart")
             assert _canvas_has_pixels(page, "#hourly-steps-chart")
             assert page.locator("#active-window").inner_text() != "Unavailable"
 
