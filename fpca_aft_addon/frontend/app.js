@@ -10,6 +10,61 @@ let fpcaChart = null
 let latestAftData = null
 let latestFpcaData = null
 
+function setProfileStatus(message, isError = false) {
+  const status = document.getElementById("profile-status")
+  if (!status) return
+  status.textContent = message
+  status.classList.toggle("error", isError)
+}
+
+function populateProfile(profile) {
+  const form = document.getElementById("profile-form")
+  if (!form || !profile) return
+  Object.entries(profile).forEach(([key, value]) => {
+    const field = form.elements.namedItem(key)
+    if (field) field.value = value
+  })
+}
+
+async function loadProfile() {
+  try {
+    const response = await fetch("./api/profile")
+    if (!response.ok) throw new Error("Unable to load profile")
+    populateProfile(await response.json())
+  } catch (error) {
+    console.error("Error loading health profile", error)
+    setProfileStatus("Could not load your profile.", true)
+  }
+}
+
+function initProfileForm() {
+  const form = document.getElementById("profile-form")
+  if (!form) return
+  form.addEventListener("submit", async event => {
+    event.preventDefault()
+    const profile = Object.fromEntries(new FormData(form).entries())
+    profile.age = Number(profile.age)
+    profile.bmi = Number(profile.bmi)
+    setProfileStatus("Saving…")
+    try {
+      const response = await fetch("./api/profile", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(profile)
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.message || "Unable to save profile")
+      populateProfile(result)
+      setProfileStatus("Saved. Refreshing estimate…")
+      await loadBackend()
+      setProfileStatus("Saved.")
+    } catch (error) {
+      console.error("Error saving health profile", error)
+      setProfileStatus(error.message, true)
+    }
+  })
+}
+
 function setMetricValue(name, value) {
   metricElements[name]?.forEach(element => {
     element.textContent = value
@@ -373,5 +428,7 @@ async function loadBackend() {
 
 document.addEventListener("DOMContentLoaded", () => {
   initTabs()
+  initProfileForm()
+  loadProfile()
   loadBackend()
 })
