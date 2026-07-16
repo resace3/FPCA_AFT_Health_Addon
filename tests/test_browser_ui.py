@@ -18,7 +18,7 @@ def _canvas_has_pixels(page, selector):
           return data.some(channel => channel !== 0)
         }
         """,
-        selector,
+        arg=selector,
     )
 
 
