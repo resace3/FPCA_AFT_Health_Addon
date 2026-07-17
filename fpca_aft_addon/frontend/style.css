@@ -259,17 +259,6 @@ select:focus-visible {
 .active-window-card { min-height: 190px; display: flex; align-items: center; gap: 16px; padding: 22px; }
 .active-window-card strong { display: block; margin: 9px 0 4px; color: var(--ink); font-size: 24px; letter-spacing: -0.025em; }
 .active-window-card p { margin: 0; color: var(--muted); font-size: 12.5px; }
-.comparison-card { padding: 22px; }
-.comparison-list { margin-top: 15px; border: 1px solid var(--border); border-radius: 13px; overflow: hidden; }
-.comparison-row { min-height: 70px; display: grid; grid-template-columns: 28px 1fr auto; align-items: center; gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--border); }
-.comparison-row:last-child { border-bottom: 0; }
-.comparison-row > span { color: var(--orange); font-size: 21px; }
-.comparison-row > span.moon { color: var(--purple); }
-.comparison-row p { display: grid; gap: 2px; margin: 0; color: var(--soft-ink); font-size: 13px; }
-.comparison-row small { color: var(--muted); font-size: 11px; }
-.comparison-row strong { color: var(--muted); font-size: 12px; text-align: right; }
-.comparison-row strong.up { color: var(--green-dark); }
-.comparison-row strong.down { color: var(--red); }
 
 .info-banner, .privacy-banner {
   display: flex;
@@ -359,7 +348,7 @@ select:focus-visible {
   .tab-button { min-width: 0; padding: 0 4px; font-size: 11.5px; line-height: 1.2; text-align: center; }
   .tab-button span { white-space: normal; }
   .tab-button svg { display: none; }
-  .risk-card, .weekly-card, .survival-card, .change-card, .meaning-card, .hourly-card, .comparison-card { padding: 18px; }
+  .risk-card, .weekly-card, .survival-card, .change-card, .meaning-card, .hourly-card { padding: 18px; }
   .overview-top-grid, .overview-bottom-grid, .rhythm-layout { gap: 14px; margin-bottom: 14px; }
   .weekly-chart-box { height: 175px; }
   .survival-card { min-height: 325px; }

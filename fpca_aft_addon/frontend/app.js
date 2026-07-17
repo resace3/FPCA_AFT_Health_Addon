@@ -171,14 +171,6 @@ function renderGauge(aft) {
   byId("risk-card").setAttribute("aria-busy", "false")
 }
 
-function comparisonText(value, element) {
-  element.classList.remove("up", "down")
-  if (!isFiniteNumber(value)) return "Unavailable"
-  if (Math.abs(value) < 2) return "No meaningful change"
-  element.classList.add(value > 0 ? "up" : "down")
-  return `${value > 0 ? "Up" : "Down"} ${Math.abs(value).toFixed(0)}%`
-}
-
 function renderText(payload) {
   const aft = payload?.aft
   const fpca = payload?.fpca
@@ -216,14 +208,6 @@ function renderText(payload) {
   byId("hourly-days-copy").textContent = Number.isInteger(representedDays)
     ? `Based on ${representedDays} complete ${representedDays === 1 ? "day" : "days"} in your configured timezone`
     : "Complete-day coverage unavailable"
-  const period = ui.period_comparison || {}
-  byId("comparison-baseline").textContent = period.baseline_label && period.baseline_label !== "Unavailable"
-    ? `Compared with ${period.baseline_label}`
-    : "No earlier baseline is available"
-  for (const key of ["morning", "afternoon", "evening"]) {
-    const element = byId(`comparison-${key}`)
-    element.textContent = comparisonText(period[key], element)
-  }
   document.querySelectorAll("[aria-busy='true']").forEach(element => element.setAttribute("aria-busy", "false"))
 }
 
